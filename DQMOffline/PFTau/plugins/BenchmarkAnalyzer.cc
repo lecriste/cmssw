@@ -20,39 +20,11 @@ BenchmarkAnalyzer::BenchmarkAnalyzer(const edm::ParameterSet& parameterSet)
 
   std::string folder = benchmarkLabel_ ;
 
-  // moved from beginJob
-  // moved to bookHistograms
-  //Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  /*  
-      if(!Benchmark::DQM_) {
-      throw "Please initialize the DQM service in your cfg";
-      }
-  */
-  //// part of the following could be put in the base class
-  //string path = "PFTask/" + benchmarkLabel_ ; 
   subsystemname_ = "ParticleFlow" ;
   eventInfoFolder_ = subsystemname_ + "/" + folder ;
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
-  //cout<<"path set to "<<path<<endl;
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void 
-BenchmarkAnalyzer::beginJob()
-{  
-  Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  if(!Benchmark::DQM_) {
-    throw "Please initialize the DQM service in your cfg";
-  }
-
-  // part of the following could be put in the base class
-  string path = "PFTask/" + benchmarkLabel_ ; 
-  Benchmark::DQM_->setCurrentFolder(path.c_str());
-  cout<<"path set to "<<path<<endl;
-}
-*/
 
 //
 // -- BookHistograms
@@ -61,12 +33,6 @@ void BenchmarkAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & /* iRun */,
 					    edm::EventSetup const & /* iSetup */ )
 {
-  //In STEP1 the direct access to the DQMStore is forbidden
-  //Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  // part of the following could be put in the base class
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
   ibooker.setCurrentFolder(eventInfoFolder_) ;
-  //cout<<"path set to "<<path<<endl;
   cout << "path set to " << eventInfoFolder_ << endl;
-
 }

@@ -35,36 +35,13 @@ PFJetDQMAnalyzer::PFJetDQMAnalyzer(const edm::ParameterSet& parameterSet)
 
   std::string folder = benchmarkLabel_ ;
 
-  // moved from beginJob
-  // moved to bookHistograms
-  //Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  // part of the following could be put in the base class
-  //std::string path = "ParticleFlow/" + benchmarkLabel_;
   subsystemname_ = "ParticleFlow" ;
   eventInfoFolder_ = subsystemname_ + "/" + folder ;
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
-  //edm::LogInfo("PFJetDQMAnalyzer") << " PFJetDQMAnalyzer::beginJob " << "Histogram Folder path set to "<< path;
-  //pfJetMonitor_.setup(pSet_);  // booking histograms of type delta_frac_VS_frac from PFJetMonitor, pt_ eta_ phi_ and charge_ from CandidateBenchmark,  delta_x_VS_y from MatchCandidateBenchmark
+
   nBadEvents_ = 0;
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-//
-// -- BeginJob
-//
-void PFJetDQMAnalyzer::beginJob() {
-
-  Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  // part of the following could be put in the base class
-  std::string path = "ParticleFlow/" + benchmarkLabel_;
-  Benchmark::DQM_->setCurrentFolder(path.c_str());
-  edm::LogInfo("PFJetDQMAnalyzer") << " PFJetDQMAnalyzer::beginJob " << "Histogram Folder path set to "<< path;
-  pfJetMonitor_.setup(pSet_);  // booking histograms of type delta_frac_VS_frac from PFJetMonitor, pt_ eta_ phi_ and charge_ from CandidateBenchmark,  delta_x_VS_y from MatchCandidateBenchmark
-  nBadEvents_ = 0;
-}
-*/
 
 //
 // -- BookHistograms
@@ -73,12 +50,8 @@ void PFJetDQMAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & /* iRun */,
 					    edm::EventSetup const & /* iSetup */ )
 {
-  //In STEP1 the direct access to the DQMStore is forbidden.
-  //Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  // part of the following could be put in the base class
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
   ibooker.setCurrentFolder(eventInfoFolder_) ;
-  //edm::LogInfo("PFCandidateDQMAnalyzer") << " PFCandidateDQMAnalyzer::beginJob " << "Histogram Folder path set to " << path ;
+
   edm::LogInfo("PFJetDQMAnalyzer") << " PFJetDQMAnalyzer::beginJob " << "Histogram Folder path set to " << eventInfoFolder_;
 
   //pfJetMonitor_.setup(pSet_);
@@ -88,8 +61,8 @@ void PFJetDQMAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 //
 // -- Analyze
 //
-void PFJetDQMAnalyzer::analyze(edm::Event const& iEvent, 			                           edm::EventSetup const& iSetup) {
-//void PFJetDQMAnalyzer::analyze(DQMStore::IBooker & ibooker,			                             edm::Event const& iEvent, 			                                 edm::EventSetup const& iSetup) {
+void PFJetDQMAnalyzer::analyze(edm::Event const& iEvent, edm::EventSetup const& iSetup) {
+//void PFJetDQMAnalyzer::analyze(DQMStore::IBooker & ibooker, edm::Event const& iEvent, edm::EventSetup const& iSetup) {
 
   edm::Handle< edm::View<reco::Jet> > jetCollection;
   iEvent.getByToken(myJet_, jetCollection);   
@@ -153,14 +126,6 @@ void PFJetDQMAnalyzer::storeBadEvents(DQMStore::IBooker & ibooker, edm::Event co
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-//
-// -- EndJob
-// 
-void PFJetDQMAnalyzer::endJob() {
-}
-*/
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE (PFJetDQMAnalyzer) ;

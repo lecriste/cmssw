@@ -29,33 +29,19 @@ MatchMETBenchmarkAnalyzer::MatchMETBenchmarkAnalyzer(const edm::ParameterSet& pa
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void 
-MatchMETBenchmarkAnalyzer::beginJob()
-{
-  BenchmarkAnalyzer::beginJob();
-  setup();
-}
-*/
 
 void MatchMETBenchmarkAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & iRun,
 					    edm::EventSetup const & iSetup )
 {
-  // moved from beginJob
-  //BenchmarkAnalyzer::beginJob();
-  //setup();
   BenchmarkAnalyzer::bookHistograms(ibooker, iRun, iSetup);
   setup(ibooker);
- 
 }
 
 void 
 MatchMETBenchmarkAnalyzer::analyze(const edm::Event& iEvent, 
 				      const edm::EventSetup& iSetup) {
-  
-  
+   
   Handle< View<MET> > collection; 
   iEvent.getByToken(myColl_, collection);
 
@@ -65,8 +51,3 @@ MatchMETBenchmarkAnalyzer::analyze(const edm::Event& iEvent,
   fillOne( (*collection)[0] , (*matchedCollection)[0]);
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void MatchMETBenchmarkAnalyzer::endJob() {
-}
-*/

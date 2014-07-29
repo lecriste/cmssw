@@ -33,36 +33,13 @@ PFCandidateDQMAnalyzer::PFCandidateDQMAnalyzer(const edm::ParameterSet& paramete
 
   std::string folder = benchmarkLabel_ ;
 
-  // moved from beginJob
-  // moved to bookHistograms
-  //Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  //// part of the following could be put in the base class
-  //std::string path = "ParticleFlow/" + benchmarkLabel_;
   subsystemname_ = "ParticleFlow" ;
   eventInfoFolder_ = subsystemname_ + "/" + folder ;
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
-  //edm::LogInfo("PFCandidateDQMAnalyzer") << " PFCandidateDQMAnalyzer::beginJob " << "Histogram Folder path set to "<< path;
-  //pfCandidateMonitor_.setup(pSet_);  
+
   nBadEvents_ = 0;
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-//
-// -- BeginJob
-//
-void PFCandidateDQMAnalyzer::beginJob() {
-
-  Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  // part of the following could be put in the base class
-  std::string path = "ParticleFlow/" + benchmarkLabel_;
-  Benchmark::DQM_->setCurrentFolder(path.c_str());
-  edm::LogInfo("PFCandidateDQMAnalyzer") << " PFCandidateDQMAnalyzer::beginJob " << "Histogram Folder path set to "<< path;
-  pfCandidateMonitor_.setup(pSet_);  
-  nBadEvents_ = 0;
-}
-*/
 
 //
 // -- BookHistograms
@@ -71,12 +48,8 @@ void PFCandidateDQMAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & /* iRun */,
 					    edm::EventSetup const & /* iSetup */ )
 {
-  //In STEP1 the direct access to the DQMStore is forbidden
-  //Benchmark::DQM_ = edm::Service<DQMStore>().operator->();
-  // part of the following could be put in the base class
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
   ibooker.setCurrentFolder(eventInfoFolder_) ;
-  //edm::LogInfo("PFCandidateDQMAnalyzer") << " PFCandidateDQMAnalyzer::beginJob " << "Histogram Folder path set to " << path ;
+
   edm::LogInfo("PFCandidateDQMAnalyzer") << " PFCandidateDQMAnalyzer::beginJob " << "Histogram Folder path set to " << eventInfoFolder_;
   
   //pfCandidateMonitor_.setup(pSet_);
@@ -88,7 +61,7 @@ void PFCandidateDQMAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 //
 void PFCandidateDQMAnalyzer::analyze(edm::Event const& iEvent, 
 				     edm::EventSetup const& iSetup) {
-//void PFCandidateDQMAnalyzer::analyze(DQMStore::IBooker & ibooker,				                   edm::Event const& iEvent, 				                       edm::EventSetup const& iSetup) {
+//void PFCandidateDQMAnalyzer::analyze(DQMStore::IBooker & ibooker, edm::Event const& iEvent, edm::EventSetup const& iSetup) {
   
   edm::Handle< edm::View<reco::Candidate> > candCollection;
   edm::Handle< edm::View<reco::Candidate> > matchedCandCollection;
@@ -131,8 +104,6 @@ void PFCandidateDQMAnalyzer::storeBadEvents(DQMStore::IBooker & ibooker, edm::Ev
   unsigned int lumiNb = iEvent.id().luminosityBlock();
   
   std::string path = "ParticleFlow/" + benchmarkLabel_ + "/BadEvents";
-  //In STEP1 the direct access to the DQMStore is forbidden
-  //Benchmark::DQM_->setCurrentFolder(path.c_str());
   ibooker.setCurrentFolder(eventInfoFolder_) ;
   std::ostringstream eventid_str;
   eventid_str << runNb << "_"<< evtNb << "_" << lumiNb;
@@ -152,14 +123,6 @@ void PFCandidateDQMAnalyzer::storeBadEvents(DQMStore::IBooker & ibooker, edm::Ev
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-//
-// -- EndJob
-// 
-void PFCandidateDQMAnalyzer::endJob() {
-}
-*/
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE (PFCandidateDQMAnalyzer) ;

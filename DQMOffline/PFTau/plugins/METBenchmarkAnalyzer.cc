@@ -31,27 +31,13 @@ METBenchmarkAnalyzer::METBenchmarkAnalyzer(const edm::ParameterSet& parameterSet
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void 
-//METBenchmarkAnalyzer::beginJob()
-{
-
-  BenchmarkAnalyzer::beginJob();
-  setup();
-}
-*/
 
 void METBenchmarkAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & iRun,
 					    edm::EventSetup const & iSetup )
 {
-  // moved from beginJob
-  //BenchmarkAnalyzer::beginJob();
-  //setup();
   BenchmarkAnalyzer::bookHistograms(ibooker, iRun, iSetup);
   setup(ibooker);
- 
 }
 
 void 
@@ -64,8 +50,3 @@ METBenchmarkAnalyzer::analyze(const edm::Event& iEvent,
   fill( *collection );
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void METBenchmarkAnalyzer::endJob() {
-}
-*/

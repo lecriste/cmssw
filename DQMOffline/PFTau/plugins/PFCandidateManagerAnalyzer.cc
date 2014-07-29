@@ -40,26 +40,13 @@ PFCandidateManagerAnalyzer::PFCandidateManagerAnalyzer(const edm::ParameterSet& 
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void 
-PFCandidateManagerAnalyzer::beginJob()
-{
-  BenchmarkAnalyzer::beginJob();
-  setup();
-}
-*/
 
 void PFCandidateManagerAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & iRun,
 					    edm::EventSetup const & iSetup )
 {
-  // moved from beginJob
-  //BenchmarkAnalyzer::beginJob();
-  //setup();
   BenchmarkAnalyzer::bookHistograms(ibooker, iRun, iSetup);
   setup(ibooker);
- 
 }
 
 void 
@@ -75,8 +62,3 @@ PFCandidateManagerAnalyzer::analyze(const edm::Event& iEvent,
   fill( *collection, *matchCollection );
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void PFCandidateManagerAnalyzer::endJob() {
-}
-*/

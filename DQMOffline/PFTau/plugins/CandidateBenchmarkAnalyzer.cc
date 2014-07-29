@@ -33,29 +33,13 @@ CandidateBenchmarkAnalyzer::CandidateBenchmarkAnalyzer(const edm::ParameterSet& 
 
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-void 
-//CandidateBenchmarkAnalyzer::beginJob()
-CandidateBenchmarkAnalyzer::beginJob(DQMStore::IBooker& b)
-{
-
-  BenchmarkAnalyzer::beginJob();
-  //setup();
-  setup(b);
-}
-*/
 
 void CandidateBenchmarkAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
 					    edm::Run const & iRun,
 					    edm::EventSetup const & iSetup )
 {
-  // moved from beginJob
-  //BenchmarkAnalyzer::beginJob();
-  //setup();
   BenchmarkAnalyzer::bookHistograms(ibooker, iRun, iSetup);
   setup(ibooker);
- 
 }
 
 void 
@@ -68,9 +52,3 @@ CandidateBenchmarkAnalyzer::analyze(const edm::Event& iEvent,
   fill( *collection );
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-
-void CandidateBenchmarkAnalyzer::endJob() {
-}
-*/

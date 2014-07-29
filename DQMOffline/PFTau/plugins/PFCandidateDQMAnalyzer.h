@@ -12,7 +12,6 @@
 
 #include "DQMServices/Core/interface/DQMEDAnalyzer.h"
 
-//class PFCandidateDQMAnalyzer: public edm::EDAnalyzer {
 class PFCandidateDQMAnalyzer: public DQMEDAnalyzer {
  public:
   

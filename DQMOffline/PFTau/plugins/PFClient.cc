@@ -27,39 +27,11 @@ PFClient::PFClient(const edm::ParameterSet& parameterSet)
   igetter_ = 0 ;
 }
 
-// the beginJob and endJob transitions are not triggered anymore
-/*
-//
-// -- BeginJob
-//
-void PFClient::beginJob() {
-
-  dqmStore_ = edm::Service<DQMStore>().operator->();
-}
-*/
-
 //
 // -- EndJobBegin Run
 // 
 void PFClient::endRun(edm::Run const& run, edm::EventSetup const& eSetup) {
-  // moved to dqmEndJob
-  /*
-  doSummaries(); 
-  doProjection();
-  if (efficiencyFlag_) doEfficiency();
-  if (profileFlag_) doProfiles();
-  */
 }
-
-// the beginJob and endJob transitions are not triggered anymore
-/*
-//
-// -- EndJob
-// 
-void PFClient::endJob() {
-
-}
-*/
 
 void PFClient::dqmEndJob(DQMStore::IBooker& ibooker, DQMStore::IGetter& igetter)
 {
