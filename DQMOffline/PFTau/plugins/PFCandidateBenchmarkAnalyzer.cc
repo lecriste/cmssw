@@ -21,6 +21,7 @@ using namespace std;
 
 
 PFCandidateBenchmarkAnalyzer::PFCandidateBenchmarkAnalyzer(const edm::ParameterSet& parameterSet) : 
+//PFCandidateBenchmarkAnalyzer::PFCandidateBenchmarkAnalyzer(DQMStore::IBooker& b, const edm::ParameterSet& parameterSet) : 
   BenchmarkAnalyzer(parameterSet),
   PFCandidateBenchmark( (Benchmark::Mode) parameterSet.getParameter<int>("mode") )
 {
@@ -32,16 +33,30 @@ PFCandidateBenchmarkAnalyzer::PFCandidateBenchmarkAnalyzer(const edm::ParameterS
 	    parameterSet.getParameter<double>("phiMax") );
 
   myColl_ = consumes< PFCandidateCollection >(inputLabel_);
+
 }
 
-
+// the beginJob and endJob transitions are not triggered anymore
+/*
 void 
 PFCandidateBenchmarkAnalyzer::beginJob()
 {
   BenchmarkAnalyzer::beginJob();
   setup();
 }
+*/
 
+void PFCandidateBenchmarkAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
+					    edm::Run const & iRun,
+					    edm::EventSetup const & iSetup )
+{
+  // moved from beginJob
+  //BenchmarkAnalyzer::beginJob();
+  //setup();
+  BenchmarkAnalyzer::bookHistograms(ibooker, iRun, iSetup);
+  setup(ibooker);
+ 
+}
 
 void 
 PFCandidateBenchmarkAnalyzer::analyze(const edm::Event& iEvent, 
@@ -54,6 +69,8 @@ PFCandidateBenchmarkAnalyzer::analyze(const edm::Event& iEvent,
   fill( *collection );
 }
 
-
+// the beginJob and endJob transitions are not triggered anymore
+/*
 void PFCandidateBenchmarkAnalyzer::endJob() {
 }
+*/
