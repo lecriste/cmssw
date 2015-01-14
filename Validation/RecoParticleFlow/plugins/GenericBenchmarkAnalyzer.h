@@ -6,7 +6,7 @@
 // extension: Leo Neuhaus & Joanna Weng 09.2008
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "DQMServices/Core/interface/DQMEDAnalyzer.h"
 
 #include "RecoParticleFlow/Benchmark/interface/GenericBenchmark.h"
 #include "FWCore/Utilities/interface/InputTag.h"
@@ -14,15 +14,15 @@
 
 #include <map>
 
-class GenericBenchmarkAnalyzer: public edm::EDAnalyzer, public GenericBenchmark {
+class GenericBenchmarkAnalyzer: public DQMEDAnalyzer, public GenericBenchmark {
 public:
 
   explicit GenericBenchmarkAnalyzer(const edm::ParameterSet&);
   virtual ~GenericBenchmarkAnalyzer();
 
   virtual void analyze(const edm::Event&, const edm::EventSetup&);
-  virtual void beginJob() ;
-  virtual void endJob() ;
+  void bookHistograms(DQMStore::IBooker &, edm::Run const &, edm::EventSetup const &) override ;
+
 
  private:
 
@@ -33,6 +33,7 @@ public:
   edm::InputTag inputTruthLabel_;
   edm::InputTag inputRecoLabel_;
   std::string benchmarkLabel_;
+  std::string path_ ;
   bool startFromGen_;
   bool plotAgainstRecoQuantities_;
   bool onlyTwoJets_;

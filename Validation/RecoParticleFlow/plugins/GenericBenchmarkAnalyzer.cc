@@ -63,27 +63,26 @@ GenericBenchmarkAnalyzer::GenericBenchmarkAnalyzer(const edm::ParameterSet& iCon
   myTruth_ = consumes< edm::View<reco::Candidate> >(inputTruthLabel_);
   myReco_ = consumes< edm::View<reco::Candidate> >(inputRecoLabel_);
 
+  path_ = "ParticleFlow/" + benchmarkLabel_ + "/" ;
+  if (plotAgainstRecoQuantities_) path_ += "Reco"; else path_ += "Gen";
+
 }
 
 GenericBenchmarkAnalyzer::~GenericBenchmarkAnalyzer() { }
 
-void 
-GenericBenchmarkAnalyzer::beginJob()
+void
+GenericBenchmarkAnalyzer::bookHistograms(DQMStore::IBooker & ibooker,
+					 edm::Run const & /* iRun */,
+					 edm::EventSetup const & /* iSetup */ )
 {
+  //ibooker->setVerbose(1);
+  //path_ = "PFTask/Benchmarks/" + benchmarkLabel_ + "/";
+  ibooker.setCurrentFolder(path_.c_str()) ;
+  setup(&ibooker, plotAgainstRecoQuantities_, minDeltaEt_, maxDeltaEt_, minDeltaPhi_, maxDeltaPhi_, doMetPlots_);
 
-  // get ahold of back-end interface
-  dbe_ = edm::Service<DQMStore>().operator->();
-  
-  if (dbe_) {
-    //dbe_->setVerbose(1);
-    //string path = "PFTask/Benchmarks/" + benchmarkLabel_ + "/";
-    std::string path = "ParticleFlow/" + benchmarkLabel_ + "/" ;
-    if (plotAgainstRecoQuantities_) path += "Reco"; else path += "Gen";
-    dbe_->setCurrentFolder(path.c_str());
-    setup(dbe_, plotAgainstRecoQuantities_, minDeltaEt_, maxDeltaEt_, minDeltaPhi_, maxDeltaPhi_, doMetPlots_);
-
-  }
-
+  // Store the DAQ Histograms
+  if (outputFile_.size() != 0)
+    ibooker->save(outputFile_);
 }
 
 void 
@@ -144,12 +143,4 @@ GenericBenchmarkAnalyzer::analyze(const edm::Event& iEvent,
   fill(reco_candidates,truth_candidates,
       startFromGen_, plotAgainstRecoQuantities_, 
       onlyTwoJets_, recPt_cut,  minEta_cut, maxEta_cut, deltaR_cut);
-}
-
-void GenericBenchmarkAnalyzer::endJob() 
-{
-
-  // Store the DAQ Histograms
-  if (outputFile_.size() != 0)
-    dbe_->save(outputFile_);
 }

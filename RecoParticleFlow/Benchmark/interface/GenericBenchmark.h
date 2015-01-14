@@ -9,6 +9,8 @@
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/METReco/interface/MET.h"
 
+#include "DQMServices/Core/interface/DQMEDAnalyzer.h"
+
 #include <string>
 
 #include <TH1F.h>
@@ -28,7 +30,7 @@ class GenericBenchmark{
   GenericBenchmark();
   virtual ~GenericBenchmark();
 
-  void setup(DQMStore *DQM = NULL, 
+  void setup(DQMStore::IBooker *DQM = NULL, 
 	     bool PlotAgainstReco_=true, 
 	     float minDeltaEt = -100., float maxDeltaEt = 50., 
 	     float minDeltaPhi = -0.5, float maxDeltaPhi = 0.5,

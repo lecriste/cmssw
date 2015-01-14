@@ -38,7 +38,7 @@ GenericBenchmark::GenericBenchmark() {}
 
 GenericBenchmark::~GenericBenchmark() {}
 
-void GenericBenchmark::setup(DQMStore *DQM, bool PlotAgainstReco_, float minDeltaEt, float maxDeltaEt,
+void GenericBenchmark::setup(DQMStore::IBooker *DQM, bool PlotAgainstReco_, float minDeltaEt, float maxDeltaEt,
 			     float minDeltaPhi, float maxDeltaPhi, bool doMetPlots) {
 
   //std::cout << "minDeltaPhi = " << minDeltaPhi << std::endl;
