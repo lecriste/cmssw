@@ -71,8 +71,11 @@ from PhysicsTools.PatAlgos.triggerLayer1.triggerProducer_cfi import patTrigger a
 patTriggerFull.onlyStandAlone = True
 patTrigger = cms.EDProducer("TriggerObjectFilterByCollection",
     src = cms.InputTag("patTriggerFull"),
-    collections = cms.vstring("hltL1extraParticles", "hltL2MuonCandidates", "hltL3MuonCandidates", "hltGlbTrkMuonCands", "hltMuTrackJpsiCtfTrackCands", "hltMuTrackJpsiEffCtfTrackCands", "hltMuTkMuJpsiTrackerMuonCands"),
-) 
+    #collections = cms.vstring("hltL1extraParticles", "hltL2MuonCandidates", "hltL3MuonCandidates", "hltGlbTrkMuonCands", "hltMuTrackJpsiCtfTrackCands", "hltMuTrackJpsiEffCtfTrackCands", "hltMuTkMuJpsiTrackerMuonCands", "hltTracksIter"),
+    #collections = cms.vstring("hltL1extraParticles", "hltL2MuonCandidates", "hltL3MuonCandidates", "hltHighPtTkMuonCands", "hltGlbTrkMuonCands", "hltMuTrackJpsiCtfTrackCands", "hltMuTrackJpsiEffCtfTrackCands", "hltMuTkMuJpsiTrackerMuonCands", "hltTracksIter"),
+    collections = cms.vstring("hltL1extraParticles", "hltL2MuonCandidates", "hltL3MuonCandidates", "hltHighPtTkMuonCands", "hltGlbTrkMuonCands", "hltMuTrackJpsiCtfTrackCands", "hltMuTrackJpsiEffCtfTrackCands", "hltMuTkMuJpsiTrackerMuonCands", "hltTracksIter", "hltMuTkMuTrackerMuonCandsOnia"), # needed by Mu25TkMu0Onia_TM flag
+)
+ 
 #patTrigger = cms.EDFilter("PATTriggerObjectStandAloneSelector",
 #    src = cms.InputTag("patTriggerFull"),
 #    cut = cms.string('coll("hltL1extraParticles") || coll("hltL2MuonCandidates") || coll("hltL3MuonCandidates") || coll("hltGlbTrkMuonCands") || coll("hltMuTrackJpsiCtfTrackCands") || coll("hltMuTrackJpsiEffCtfTrackCands") || coll("hltMuTkMuJpsiTrackerMuonCands")'),
@@ -107,15 +110,20 @@ muonMatchHLTL1 = muonMatchL1.clone(matchedCuts = cms.string('coll("hltL1extraPar
 muonMatchHLTL2 = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltL2MuonCandidates")'), maxDeltaR = 0.3, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning. It was: 1.2
 muonMatchHLTL3 = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltL3MuonCandidates")'), maxDeltaR = 0.1, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning. It was: 0.5
 muonMatchHLTL3T = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltGlbTrkMuonCands")'),  maxDeltaR = 0.1, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning. It was: 0.5
+muonMatchHLTTkMu =  muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltHighPtTkMuonCands")'),  maxDeltaR = 0.1, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning. It was: 0.5
 muonMatchHLTCtfTrack  = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltMuTrackJpsiCtfTrackCands")'),    maxDeltaR = 0.1, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning. 
 muonMatchHLTCtfTrack2 = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltMuTrackJpsiEffCtfTrackCands")'), maxDeltaR = 0.1, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning. 
-muonMatchHLTTrackMu  = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltMuTkMuJpsiTrackerMuonCands")'), maxDeltaR = 0.1, maxDPtRel = 10.0) #maxDeltaR Changed accordingly to Zoltan tuning. 
+muonMatchHLTTrackMu  = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltMuTkMuJpsiTrackerMuonCands")'), maxDeltaR = 0.1, maxDPtRel = 10.0) #maxDeltaR Changed accordingly to Zoltan tuning.
+muonMatchHLTTracksIter  = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltTracksIter")'),    maxDeltaR = 0.1, maxDPtRel = 10.0)  #maxDeltaR Changed accordingly to Zoltan tuning.
+muonMatchHLTTrackMuOnia  = muonTriggerMatchHLT.clone(matchedCuts = cms.string('coll("hltMuTkMuTrackerMuonCandsOnia")'),    maxDeltaR = 0.1, maxDPtRel = 10.0)
 
 patTriggerMatchers1Mu = cms.Sequence(
       #muonMatchHLTL1 +   # keep off by default, since it is slow and usually not needed
       muonMatchHLTL2 +
       muonMatchHLTL3 +
-      muonMatchHLTL3T 
+      muonMatchHLTL3T +
+      muonMatchHLTTkMu
+      + muonMatchHLTTrackMuOnia
 )
 patTriggerMatchers1MuInputTags = [
     #cms.InputTag('muonMatchHLTL1','propagatedReco'), # fake, will match if and only if he muon did propagate to station 2
@@ -123,17 +131,23 @@ patTriggerMatchers1MuInputTags = [
     cms.InputTag('muonMatchHLTL2'),
     cms.InputTag('muonMatchHLTL3'),
     cms.InputTag('muonMatchHLTL3T'),
+    cms.InputTag('muonMatchHLTTkMu'),
+    cms.InputTag('muonMatchHLTTrackMuOnia'),
 ]
 
 patTriggerMatchers2Mu = cms.Sequence(
     muonMatchHLTCtfTrack  +
     muonMatchHLTCtfTrack2 +
-    muonMatchHLTTrackMu
+    muonMatchHLTTrackMu   +
+    muonMatchHLTTracksIter
+    + muonMatchHLTTrackMuOnia
 )
 patTriggerMatchers2MuInputTags = [
     cms.InputTag('muonMatchHLTCtfTrack'),
     cms.InputTag('muonMatchHLTCtfTrack2'),
     cms.InputTag('muonMatchHLTTrackMu'),
+    cms.InputTag('muonMatchHLTTracksIter'),
+    cms.InputTag('muonMatchHLTTrackMuOnia'),
 ]
 
 ## ==== Embed ====
@@ -166,8 +180,11 @@ def switchOffAmbiguityResolution(process):
     process.muonMatchHLTL1.resolveAmbiguities = False
     process.muonMatchHLTL2.resolveAmbiguities = False
     process.muonMatchHLTL3.resolveAmbiguities = False
+    process.muonMatchHLTTkMu.resolveAmbiguities  = False
     process.muonMatchHLTCtfTrack.resolveAmbiguities = False
     process.muonMatchHLTTrackMu.resolveAmbiguities  = False
+    process.muonMatchHLTTracksIter.resolveAmbiguities  = False
+    process.muonMatchHLTTrackMuOnia.resolveAmbiguities  = False
 
 def changeTriggerProcessName(process, triggerProcessName, oldProcessName="HLT"):
     "Change the process name under which the trigger was run"

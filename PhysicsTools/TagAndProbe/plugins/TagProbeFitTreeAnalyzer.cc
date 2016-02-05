@@ -67,7 +67,7 @@ TagProbeFitTreeAnalyzer::TagProbeFitTreeAnalyzer(const edm::ParameterSet& pset):
     vector<string> cat = categories.getParameter<vector<string> >(*name);
     if(cat.size()==2){
       fitter.addCategory(*name, cat[0], cat[1]);
-    }else{
+    } else {
       LogError("TagProbeFitTreeAnalyzer")<<"Could not create category: "<<*name<<
       ". Example: mcTrue = cms.vstring(\"MC True\", \"dummy[true=1,false=0]\") ";
     }

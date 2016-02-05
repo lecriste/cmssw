@@ -86,6 +86,8 @@ class TagProbeFitter {
 
   ///the map of pdf names to the vector of commands to build the pdf
   std::map<std::string, std::vector<std::string> > pdfs;
+  //
+  std::map<TString, std::vector<TString>> variable_binLimits;
 
   ///the set of variables describing the data in the input TTree
   RooArgSet variables;
@@ -146,7 +148,7 @@ class TagProbeFitter {
 
   ///saves the efficiency plots
   void saveEfficiencyPlots(RooDataSet& eff, const TString& effName, RooArgSet& binnedVariables, RooArgSet& mappedCategories);
-  
+
   ///makes the 1D plot
   void makeEfficiencyPlot1D(RooDataSet& eff, RooRealVar& v, const TString& plotName, const TString& plotTitle, const TString& effName, const char *catName = 0, int catIndex = -1);
    
