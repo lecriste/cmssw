@@ -50,6 +50,9 @@ class TagProbeFitter {
   /// set number of bins to use when making the plots; 0 = automatic
   void setBinsForMassPlots(int bins) ;
 
+  //// turn on or off the saving of distribution plots)
+  void setSaveDistributionsPlot(bool saveDistributionsPlot_) { doSaveDistributionsPlot = saveDistributionsPlot_; }
+
   /// set a variable to be used as weight for a dataset. empty string means no weights.
   void setWeightVar(const std::string &weight);
 
@@ -69,6 +72,9 @@ class TagProbeFitter {
   ///number of CPUs to use for the fit
   int numCPU;
 
+  ///save distribution plots
+  bool doSaveDistributionsPlot;
+
   ///the default option wether to save the workspace for each bin
   bool saveWorkspace;
 
@@ -80,6 +86,8 @@ class TagProbeFitter {
 
   ///the map of pdf names to the vector of commands to build the pdf
   std::map<std::string, std::vector<std::string> > pdfs;
+  //
+  std::map<TString, std::vector<TString>> variable_binLimits;
 
   ///the set of variables describing the data in the input TTree
   RooArgSet variables;
@@ -140,12 +148,12 @@ class TagProbeFitter {
 
   ///saves the efficiency plots
   void saveEfficiencyPlots(RooDataSet& eff, const TString& effName, RooArgSet& binnedVariables, RooArgSet& mappedCategories);
-  
+
   ///makes the 1D plot
-  void makeEfficiencyPlot1D(RooDataSet& eff, RooRealVar& v, const TString& plotName, const TString& plotTitle, const TString& effName);
-  
+  void makeEfficiencyPlot1D(RooDataSet& eff, RooRealVar& v, const TString& plotName, const TString& plotTitle, const TString& effName, const char *catName = 0, int catIndex = -1);
+   
   ///makes the 2D plot
-  void makeEfficiencyPlot2D(RooDataSet& eff, RooRealVar& v1, RooRealVar& v2, const TString& plotName, const TString& plotTitle, const TString& effName);
+  void makeEfficiencyPlot2D(RooDataSet& eff, RooRealVar& v1, RooRealVar& v2, const TString& plotName, const TString& plotTitle, const TString& effName, const char *catName = 0, int catIndex = -1);
   
 };
 
