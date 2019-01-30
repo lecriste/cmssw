@@ -564,58 +564,70 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
   else
     delta_c = vecDeltas_[2];
 
-  std::vector<size_t> rs =
-      sorted_indices(layerRecHitsGPU); // indices sorted by decreasing rho
-  std::vector<size_t> ds =
-      sort_by_delta(layerRecHitsGPU); // sort in decreasing distance to higher
+  // std::vector<size_t> rs =
+  //     sorted_indices(layerRecHitsGPU); // indices sorted by decreasing rho
+  // std::vector<size_t> ds =
+  //     sort_by_delta(layerRecHitsGPU); // sort in decreasing distance to higher
 
-  const unsigned int layerRecHitsGPU_size = layerRecHitsGPU.size();
+  GPU::VecArray<int, BinnerGPU::MAX_DEPTH> rs, ds;
+  //const unsigned int layerRecHitsGPU_size = layerRecHitsGPU.size();
 
   // Loop over bins from binsGPU
-  if (verbosity_ < pINFO) std::cout << "--- Start loop over bins from binsGPU" << std::endl;
-  unsigned int idxRh = 0;
   GPU::VecArray<int, BinnerGPU::MAX_DEPTH> indicesRH;
+  LayerRecHitsGPU binRecHitsGpu;
+  RecHitGPU recHitGpu;
   //
+  if (verbosity_ < pINFO) std::cout << "--- Start loop over bins from binsGPU" << std::endl;
   for(unsigned int iEta = 0; iEta < BinnerGPU::ETA_BINS; ++iEta) {
     for(unsigned int iPhi = 0; iPhi < BinnerGPU::PHI_BINS; ++iPhi) {
 
+      // Get list of RecHit indices from the 2d histogram
       indicesRH = histoGPU.getBinContent(iEta, iPhi);
 
-      for(unsigned int iRh = 0; iRh < (uint)indicesRH.size(); ++iRh) { // fixme: cast is ok?
+      // Build a vector containing all the RecHitGPU from the current 2D bin
+      //binRecHitsGpu = 0;
 
-	idxRh = indicesRH[iRh];
-	if (verbosity_ < pINFO) {
-	  std::cout << "---- idxRh( iEta=" << iEta << " , iPhi=" << iPhi << " , iRh=" << iRh << " ) = " << idxRh << std::endl
-		    << "delta_c = " << delta_c << std::endl
-		    << "layerRecHitsGPU_size = " << layerRecHitsGPU_size << std::endl;
+      // Sort the RecHits from the current 2D bin
+      rs = sorted_indices(layerRecHitsGPU, indicesRH); // indices sorted by decreasing rho
+      ds = sort_by_delta( layerRecHitsGPU, indicesRH); // sort in decreasing distance to higher
+
+      // First step: find cluster seeds by looping over RecHis sorted by decreasing rho
+      for(uint idxRh = 0; idxRh < (uint)ds.size(); ++idxRh) { // fixme: cast is ok?
+
+	// Get the RecHit corresponding to this index
+	if( idxRh < layerRecHitsGPU.size() ) {
+	  recHitGpu = layerRecHitsGPU[idxRh];
+	}
+	else {
+	  //if (verbosity_ < pINFO) {
+	  std::cout << "---- Error: RecHit with index #" << idxRh
+		    << " not found! Continue to next index record." << std::endl
+		    << "delta_c = " << delta_c << std::endl;
+	  //}
+	  continue;
 	}
 
-	// fixme //ND
-	// find out actual index of each RecHit in this (eta,phi) bin
-	//unsigned int idxRh = iRh + BinnerGPU::MAX_DEPTH * (iEta + iPhi * BinnerGPU::ETA_BINS);
-	//if (verbosity_ < pINFO) 
-	//std::cout << "---- idxRh( iEta=" << iEta << " , iPhi=" << iPhi << " , iRh=" << iRh << " ) = " << idxRh << std::endl;
+	// Stop searching for cluster seeds when distance to nearest local maximum
+	// is below threshold delta_c
+	if (recHitGpu.delta < delta_c)
+	  break;
 
-	/*	
-	if (layerRecHitsGPU[ds[i]].data.delta < delta_c)
-	  break; // no more cluster centers to be looked at
-	if (dependSensor_) {
+	// Apply a lower cut on the energy density 
+	if (dependSensor_) { // cut based on a multiple of the noise
+	  float rho_c = kappa_ * recHitGpu.sigmaNoise;
+	  if (recHitGpu.rho < rho_c)
+	    continue; 
+	} 
+	else if (recHitGpu.rho * kappa_ < maxdensity)
+	  continue; // cut based on maximal local density
 
-	  float rho_c = kappa_ * layerRecHitsGPU[ds[i]].data.sigmaNoise;
-	  if (layerRecHitsGPU[ds[i]].data.rho < rho_c)
-	    continue; // set equal to kappa times noise threshold
-
-	} else if (layerRecHitsGPU[ds[i]].data.rho * kappa_ < maxdensity)
-	  continue;
-
-	layerRecHitsGPU[ds[i]].data.clusterIndex = nClustersOnLayer;
+	recHitGpu.clusterIndex = nClustersOnLayer;
 	if (verbosity_ < pINFO) {
 	  std::cout << "Adding new cluster with index " << nClustersOnLayer
 		    << std::endl;
-	  std::cout << "Cluster center is hit " << ds[i] << std::endl;
+	  //std::cout << "Cluster center is hit " << ds[i] << std::endl;
 	}
 	nClustersOnLayer++;
-	*/
 
       } // end loop over MAX_DEPTH
     } // end loop PHI_BINS
@@ -632,10 +644,10 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
   // for top density hit that is skipped...)
   for (unsigned int oi = 1; oi < layerRecHitsGPU_size; ++oi) {
     unsigned int i = rs[oi];
-    int ci = layerRecHitsGPU[i].data.clusterIndex;
+    int ci = layerRecHitsGPU[i].clusterIndex;
     if (ci ==
         -1) { // clusterIndex is initialised with -1 if not yet used in cluster
-      layerRecHitsGPU[i].data.clusterIndex = layerRecHitsGPU[layerRecHitsGPU[i].data.nearestHigher].data.clusterIndex;
+      layerRecHitsGPU[i].clusterIndex = layerRecHitsGPU[layerRecHitsGPU[i].nearestHigher].clusterIndex;
     }
   }
 
@@ -655,7 +667,7 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
   // now loop on all hits again :( and check: if there are hits from another
   // cluster within d_c -> flag as border hit
   for (unsigned int i = 0; i < layerRecHitsGPU_size; ++i) {
-    int ci = layerRecHitsGPU[i].data.clusterIndex;
+    int ci = layerRecHitsGPU[i].clusterIndex;
     bool flag_isolated = true;
     if (ci != -1) {
       KDTreeBox search_box(nd[i].dims[0] - delta_c, nd[i].dims[0] + delta_c,
@@ -667,18 +679,18 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
       for (unsigned int j = 0; j < found_size;
            j++) { // start from 0 here instead of 1
         // check if the hit is not within d_c of another cluster
-        if (found[j].data.clusterIndex != -1) {
-          float dist = distance(found[j].data, nd[i].data);
-          if (dist < delta_c && found[j].data.clusterIndex != ci) {
+        if (found[j].clusterIndex != -1) {
+          float dist = distance(found[j], nd[i]);
+          if (dist < delta_c && found[j].clusterIndex != ci) {
             // in which case we assign it to the border
-            nd[i].data.isBorder = true;
+            nd[i].isBorder = true;
             break;
           }
           // because we are using two different containers, we have to make sure
           // that we don't unflag the
           // hit when it finds *itself* closer than delta_c
           if (dist < delta_c && dist != 0. &&
-              found[j].data.clusterIndex == ci) {
+              found[j].clusterIndex == ci) {
             // in this case it is not an isolated hit
             // the dist!=0 is because the hit being looked at is also inside the
             // search box and at dist==0
@@ -687,22 +699,22 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
         }
       }
       if (flag_isolated)
-        nd[i].data.isBorder =
+        nd[i].isBorder =
             true; // the hit is more than delta_c from any of its brethren
     }
     // check if this border hit has density larger than the current rho_b and
     // update
-    if (nd[i].data.isBorder && rho_b[ci] < nd[i].data.rho)
-      rho_b[ci] = nd[i].data.rho;
+    if (nd[i].isBorder && rho_b[ci] < nd[i].rho)
+      rho_b[ci] = nd[i].rho;
   } // end loop all hits
 
   // flag points in cluster with density < rho_b as halo points, then fill the
   // cluster vector
   for (unsigned int i = 0; i < nd_size; ++i) {
-    int ci = nd[i].data.clusterIndex;
+    int ci = nd[i].clusterIndex;
     if (ci != -1) {
-      if (nd[i].data.rho <= rho_b[ci])
-        nd[i].data.isHalo = true;
+      if (nd[i].rho <= rho_b[ci])
+        nd[i].isHalo = true;
       clustersOnLayer[ci].push_back(nd[i]);
       if (verbosity_ < pINFO) {
         std::cout << "Pushing hit " << i << " into cluster with index " << ci

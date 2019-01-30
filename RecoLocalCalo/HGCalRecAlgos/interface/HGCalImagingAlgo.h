@@ -42,6 +42,22 @@ std::vector<size_t> sorted_indices(const std::vector<T> &v) {
         return idx;
 }
 
+template <typename T>
+GPU::VecArray<int, BinnerGPU::MAX_DEPTH> sorted_indices(const std::vector<T> &v, 
+							const GPU::VecArray<int, BinnerGPU::MAX_DEPTH> inputIdx) // fixme: use more generic argument?
+{
+
+        GPU::VecArray<int, BinnerGPU::MAX_DEPTH> idx = inputIdx;
+
+        // sort indices based on comparing values in v
+        std::sort(idx.begin(), idx.end(),
+                  [&v](int i1, int i2) {
+		    return v[i1] > v[i2];
+		  });
+
+        return idx;
+}
+
 class HGCalImagingAlgo
 {
 
@@ -260,20 +276,33 @@ std::vector<std::vector<std::vector< KDNode> > > layerClustersPerLayer_;
 std::vector<size_t> sort_by_delta(const std::vector<KDNode> &v) const {
         std::vector<size_t> idx(v.size());
         std::iota (std::begin(idx), std::end(idx), 0);
-        sort(idx.begin(), idx.end(),
-             [&v](size_t i1, size_t i2) {
-                        return v[i1].data.delta > v[i2].data.delta;
-                });
+	std::sort(idx.begin(), idx.end(),
+		  [&v](size_t i1, size_t i2) {
+		    return v[i1].data.delta > v[i2].data.delta;
+		  });
         return idx;
 }
 
 std::vector<size_t> sort_by_delta(const std::vector<RecHitGPU> &v) const {
         std::vector<size_t> idx(v.size());
         std::iota (std::begin(idx), std::end(idx), 0);
-        sort(idx.begin(), idx.end(),
-             [&v](size_t i1, size_t i2) {
-                        return v[i1].delta > v[i2].delta;
-                });
+	std::sort(idx.begin(), idx.end(),
+		  [&v](size_t i1, size_t i2) {
+		    return v[i1].delta > v[i2].delta;
+		  });
+        return idx;
+}
+
+GPU::VecArray<int, BinnerGPU::MAX_DEPTH> sort_by_delta(const std::vector<RecHitGPU> &v,
+						       const GPU::VecArray<int, BinnerGPU::MAX_DEPTH> inputIdx) const // fixme: use more generic argument?
+{
+
+        GPU::VecArray<int, BinnerGPU::MAX_DEPTH> idx = inputIdx;
+
+	std::sort(idx.begin(), idx.end(),
+		  [&v](int i1, int i2) {
+		    return v[i1].delta > v[i2].delta; // fixme: needs safety check on index i1,i2 ?
+		  });
         return idx;
 }
 
