@@ -16,6 +16,10 @@ struct RecHitGPU {
         double rho;
         double delta;
         int nearestHigher;
+        int clusterIndex;
+        bool isBorder;
+        bool isHalo;
+        float sigmaNoise;
         bool operator > (const RecHitGPU& rhs) const {
                 return (rho > rhs.rho);
         }
