@@ -267,6 +267,16 @@ std::vector<size_t> sort_by_delta(const std::vector<KDNode> &v) const {
         return idx;
 }
 
+std::vector<size_t> sort_by_delta(const std::vector<RecHitGPU> &v) const {
+        std::vector<size_t> idx(v.size());
+        std::iota (std::begin(idx), std::end(idx), 0);
+        sort(idx.begin(), idx.end(),
+             [&v](size_t i1, size_t i2) {
+                        return v[i1].delta > v[i2].delta;
+                });
+        return idx;
+}
+
 std::vector<std::vector<KDNode> > points_;   //a vector of vectors of hexels, one for each layer
 //@@EM todo: the number of layers should be obtained programmatically - the range is 1-n instead of 0-n-1...
 
@@ -292,6 +302,12 @@ double calculateLocalDensity(std::vector<KDNode> &, KDTree &, const unsigned int
 double calculateDistanceToHigher(std::vector<KDNode> &) const;
 double calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const;
 int findAndAssignClusters(std::vector<KDNode> &, KDTree &, double, KDTreeBox &, const unsigned int, std::vector<std::vector<KDNode> >&) const;
+
+int findAndAssignClustersGPU(
+    double maxdensity,  const unsigned int layer,
+    LayerRecHitsGPU &layerRecHitsGPU, const BinnerGPU::Histo2D histoGPU,   
+    std::vector<std::vector<KDNode>> &clustersOnLayer) const;
+
 math::XYZPoint calculatePosition(std::vector<KDNode> &) const;
 
 // attempt to find subclusters within a given set of hexels

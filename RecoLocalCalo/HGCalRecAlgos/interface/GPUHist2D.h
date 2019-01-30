@@ -57,7 +57,7 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   } 
 
   __host__ __device__
-  int getBinIdx(float x, float y)
+  int getBinIdx(float x, float y) const
   {
     int xBin = computeXBinIndex(x);
     int yBin = computeYBinIndex(y);
@@ -65,11 +65,36 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   }
 
   __host__ __device__
-  GPU::VecArray<T, max_depth> getBinContent(float x, float y)
+  GPU::VecArray<T, max_depth> getBinContent(float x, float y) const
   {
+
+    GPU::VecArray<T, max_depth> empty;
+
     int xBin = computeXBinIndex(x);
     int yBin = computeYBinIndex(y);
-    return data_[xBin + yBin*xDim];
+
+    if( xBin + yBin*xDim < (uint)data_.size() ) { //fixme: cast is ok?
+      return data_[xBin + yBin*xDim];
+    }
+    else {
+      return empty;
+    }
+
+  }
+
+  __host__ __device__
+  GPU::VecArray<T, max_depth> getBinContent(uint xBin, uint yBin) const
+  {
+
+    GPU::VecArray<T, max_depth> empty;
+
+    if( xBin + yBin*xDim < (uint)data_.size() ) { //fixme: cast is ok?
+      return data_[xBin + yBin*xDim];
+    }
+    else {
+      return empty;
+    }
+
   }
 
   __host__ __device__

@@ -107,8 +107,9 @@ void HGCalImagingAlgo::makeClusters() {
   auto finish = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = finish - start;
   std::cout << "Elapsed time: " << elapsed.count() << " s\n";
- 
-  exit(0); // fixme: temporary stopper for test purposes
+
+  return; // fixme: alternative temporary stopper for test purposes //ND
+  //exit(0); // fixme: temporary stopper for test purposes
 
   layerClustersPerLayer_.resize(2 * maxlayer + 2);
   // assign all hits in each layer to a cluster core or halo
@@ -341,6 +342,7 @@ HGCalImagingAlgo::calculateDistanceToHigher(std::vector<KDNode> &nd) const {
   }
   return maxdensity;
 }
+
 double
 HGCalImagingAlgo::calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const {
 
@@ -538,6 +540,182 @@ int HGCalImagingAlgo::findAndAssignClusters(
   if (verbosity_ < pINFO) {
     std::cout << "moving cluster offset by " << nClustersOnLayer << std::endl;
   }
+  return nClustersOnLayer;
+}
+
+// GPU version
+int HGCalImagingAlgo::findAndAssignClustersGPU(
+    double maxdensity,  const unsigned int layer,
+    LayerRecHitsGPU &layerRecHitsGPU, const BinnerGPU::Histo2D histoGPU,   
+    std::vector<std::vector<KDNode>> &clustersOnLayer) const {
+    //std::vector<KDNode> &nd, KDTree &lp, double maxdensity, KDTreeBox &bounds,
+
+  // this is called once per layer and endcap...
+  // so when filling the cluster temporary vector of Hexels we resize each time
+  // by the number  of clusters found. This is always equal to the number of
+  // cluster centers...
+
+  unsigned int nClustersOnLayer = 0;
+  float delta_c; // critical distance
+  if (layer <= lastLayerEE)
+    delta_c = vecDeltas_[0];
+  else if (layer <= lastLayerFH)
+    delta_c = vecDeltas_[1];
+  else
+    delta_c = vecDeltas_[2];
+
+  std::vector<size_t> rs =
+      sorted_indices(layerRecHitsGPU); // indices sorted by decreasing rho
+  std::vector<size_t> ds =
+      sort_by_delta(layerRecHitsGPU); // sort in decreasing distance to higher
+
+  const unsigned int layerRecHitsGPU_size = layerRecHitsGPU.size();
+
+  // Loop over bins from binsGPU
+  if (verbosity_ < pINFO) std::cout << "--- Start loop over bins from binsGPU" << std::endl;
+  unsigned int idxRh = 0;
+  GPU::VecArray<int, BinnerGPU::MAX_DEPTH> indicesRH;
+  //
+  for(unsigned int iEta = 0; iEta < BinnerGPU::ETA_BINS; ++iEta) {
+    for(unsigned int iPhi = 0; iPhi < BinnerGPU::PHI_BINS; ++iPhi) {
+
+      indicesRH = histoGPU.getBinContent(iEta, iPhi);
+
+      for(unsigned int iRh = 0; iRh < (uint)indicesRH.size(); ++iRh) { // fixme: cast is ok?
+
+	idxRh = indicesRH[iRh];
+	if (verbosity_ < pINFO) {
+	  std::cout << "---- idxRh( iEta=" << iEta << " , iPhi=" << iPhi << " , iRh=" << iRh << " ) = " << idxRh << std::endl
+		    << "delta_c = " << delta_c << std::endl
+		    << "layerRecHitsGPU_size = " << layerRecHitsGPU_size << std::endl;
+	}
+
+	// fixme //ND
+	// find out actual index of each RecHit in this (eta,phi) bin
+	//unsigned int idxRh = iRh + BinnerGPU::MAX_DEPTH * (iEta + iPhi * BinnerGPU::ETA_BINS);
+	//if (verbosity_ < pINFO) 
+	//std::cout << "---- idxRh( iEta=" << iEta << " , iPhi=" << iPhi << " , iRh=" << iRh << " ) = " << idxRh << std::endl;
+
+	/*	
+	if (layerRecHitsGPU[ds[i]].data.delta < delta_c)
+	  break; // no more cluster centers to be looked at
+	if (dependSensor_) {
+
+	  float rho_c = kappa_ * layerRecHitsGPU[ds[i]].data.sigmaNoise;
+	  if (layerRecHitsGPU[ds[i]].data.rho < rho_c)
+	    continue; // set equal to kappa times noise threshold
+
+	} else if (layerRecHitsGPU[ds[i]].data.rho * kappa_ < maxdensity)
+	  continue;
+
+	layerRecHitsGPU[ds[i]].data.clusterIndex = nClustersOnLayer;
+	if (verbosity_ < pINFO) {
+	  std::cout << "Adding new cluster with index " << nClustersOnLayer
+		    << std::endl;
+	  std::cout << "Cluster center is hit " << ds[i] << std::endl;
+	}
+	nClustersOnLayer++;
+	*/
+
+      } // end loop over MAX_DEPTH
+    } // end loop PHI_BINS
+  } // end loop ETA_BINS
+
+  /*
+  // at this point nClustersOnLayer is equal to the number of cluster centers -
+  // if it is zero we are  done
+  if (nClustersOnLayer == 0)
+    return nClustersOnLayer;
+
+  // assign remaining points to clusters, using the nearestHigher set from
+  // previous step (always set except
+  // for top density hit that is skipped...)
+  for (unsigned int oi = 1; oi < layerRecHitsGPU_size; ++oi) {
+    unsigned int i = rs[oi];
+    int ci = layerRecHitsGPU[i].data.clusterIndex;
+    if (ci ==
+        -1) { // clusterIndex is initialised with -1 if not yet used in cluster
+      layerRecHitsGPU[i].data.clusterIndex = layerRecHitsGPU[layerRecHitsGPU[i].data.nearestHigher].data.clusterIndex;
+    }
+  }
+
+  // make room in the temporary cluster vector for the additional clusterIndex
+  // clusters
+  // from this layer
+  if (verbosity_ < pINFO) {
+    std::cout << "resizing cluster vector by " << nClustersOnLayer << std::endl;
+  }
+  clustersOnLayer.resize(nClustersOnLayer);
+
+  // assign points closer than dc to other clusters to border region
+  // and find critical border density
+  std::vector<double> rho_b(nClustersOnLayer, 0.);
+  lp.clear();
+  lp.build(layerRecHitsGPU, bounds); //fixme: all the region below needs to be fixed //ND
+  // now loop on all hits again :( and check: if there are hits from another
+  // cluster within d_c -> flag as border hit
+  for (unsigned int i = 0; i < layerRecHitsGPU_size; ++i) {
+    int ci = layerRecHitsGPU[i].data.clusterIndex;
+    bool flag_isolated = true;
+    if (ci != -1) {
+      KDTreeBox search_box(nd[i].dims[0] - delta_c, nd[i].dims[0] + delta_c,
+                           nd[i].dims[1] - delta_c, nd[i].dims[1] + delta_c);
+      std::vector<KDNode> found;
+      lp.search(search_box, found);
+
+      const unsigned int found_size = found.size();
+      for (unsigned int j = 0; j < found_size;
+           j++) { // start from 0 here instead of 1
+        // check if the hit is not within d_c of another cluster
+        if (found[j].data.clusterIndex != -1) {
+          float dist = distance(found[j].data, nd[i].data);
+          if (dist < delta_c && found[j].data.clusterIndex != ci) {
+            // in which case we assign it to the border
+            nd[i].data.isBorder = true;
+            break;
+          }
+          // because we are using two different containers, we have to make sure
+          // that we don't unflag the
+          // hit when it finds *itself* closer than delta_c
+          if (dist < delta_c && dist != 0. &&
+              found[j].data.clusterIndex == ci) {
+            // in this case it is not an isolated hit
+            // the dist!=0 is because the hit being looked at is also inside the
+            // search box and at dist==0
+            flag_isolated = false;
+          }
+        }
+      }
+      if (flag_isolated)
+        nd[i].data.isBorder =
+            true; // the hit is more than delta_c from any of its brethren
+    }
+    // check if this border hit has density larger than the current rho_b and
+    // update
+    if (nd[i].data.isBorder && rho_b[ci] < nd[i].data.rho)
+      rho_b[ci] = nd[i].data.rho;
+  } // end loop all hits
+
+  // flag points in cluster with density < rho_b as halo points, then fill the
+  // cluster vector
+  for (unsigned int i = 0; i < nd_size; ++i) {
+    int ci = nd[i].data.clusterIndex;
+    if (ci != -1) {
+      if (nd[i].data.rho <= rho_b[ci])
+        nd[i].data.isHalo = true;
+      clustersOnLayer[ci].push_back(nd[i]);
+      if (verbosity_ < pINFO) {
+        std::cout << "Pushing hit " << i << " into cluster with index " << ci
+                  << std::endl;
+      }
+    }
+  }
+
+  // prepare the offset for the next layer if there is one
+  if (verbosity_ < pINFO) {
+    std::cout << "moving cluster offset by " << nClustersOnLayer << std::endl;
+  }
+	*/
   return nClustersOnLayer;
 }
 
