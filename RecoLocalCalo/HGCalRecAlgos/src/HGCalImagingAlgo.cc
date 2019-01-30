@@ -65,7 +65,7 @@ void HGCalImagingAlgo::populate(const HGCRecHitCollection &hits) {
         Hexel(hgrh, detid, isHalf, sigmaNoise, thickness, &rhtools_),
         position.x(), position.y());
 
-    recHitsGPU[layer].push_back({i, position.eta(),position.phi()});
+    recHitsGPU[layer].push_back({i, position.x(),position.y(), position.eta(),position.phi()});
 
     // for each layer, store the minimum and maximum x and y coordinates for the
     // KDTreeBox boundaries
@@ -129,6 +129,7 @@ void HGCalImagingAlgo::makeClusters() {
       // calculate distance to nearest point with higher density storing
       // distance (delta) and point's index
       calculateDistanceToHigher(points_[i]);
+      calculateDistanceToHigherGPU(recHitsGPU[i]);
       findAndAssignClusters(points_[i], hit_kdtree, maxdensity, bounds,
                             actualLayer, layerClustersPerLayer_[i]);
     });
@@ -340,6 +341,63 @@ HGCalImagingAlgo::calculateDistanceToHigher(std::vector<KDNode> &nd) const {
   }
   return maxdensity;
 }
+double
+HGCalImagingAlgo::calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const {
+
+  // sort vector of Hexels by decreasing local density
+  std::vector<size_t> rs = sorted_indices(nd);
+  for (size_t n = 0; n < rs.size(); n++)
+    std::cout <<rs[n] <<" ";
+  std::cout <<std::endl;
+  exit(0);
+
+  double maxdensity = 0.0;
+  int nearestHigher = -1;
+
+  if (!rs.empty())
+    maxdensity = nd[rs[0]].rho;
+  else
+    return maxdensity; // there are no hits
+  double dist2 = 0.;
+  // start by setting delta for the highest density hit to
+  // the most distant hit - this is a convention
+
+  for (auto &j : nd) {
+    double tmp = distance2GPU(nd[rs[0]], j);
+    if (tmp > dist2)
+      dist2 = tmp;
+  }
+  nd[rs[0]].delta = std::sqrt(dist2);
+  nd[rs[0]].nearestHigher = nearestHigher;
+
+  // now we save the largest distance as a starting point
+  const double max_dist2 = dist2;
+  const unsigned int nd_size = nd.size();
+
+  for (unsigned int oi = 1; oi < nd_size;
+       ++oi) { // start from second-highest density
+    dist2 = max_dist2;
+    unsigned int i = rs[oi];
+    // we only need to check up to oi since hits
+    // are ordered by decreasing density
+    // and all points coming BEFORE oi are guaranteed to have higher rho
+    // and the ones AFTER to have lower rho
+    for (unsigned int oj = 0; oj < oi; ++oj) {
+      unsigned int j = rs[oj];
+      double tmp = distance2GPU(nd[i], nd[j]);
+      if (tmp <= dist2) { // this "<=" instead of "<" addresses the (rare) case
+                          // when there are only two hits
+        dist2 = tmp;
+        nearestHigher = j;
+      }
+    }
+    nd[i].delta = std::sqrt(dist2);
+    nd[i].nearestHigher =
+        nearestHigher; // this uses the original unsorted hitlist
+  }
+  return maxdensity;
+}
+
 int HGCalImagingAlgo::findAndAssignClusters(
     std::vector<KDNode> &nd, KDTree &lp, double maxdensity, KDTreeBox &bounds,
     const unsigned int layer,

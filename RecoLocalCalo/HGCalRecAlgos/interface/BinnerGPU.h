@@ -9,8 +9,16 @@
 
 struct RecHitGPU { 
         unsigned int index;
-        float eta;
-        float phi;
+        double x;
+        double y;
+        double eta;
+        double phi;
+        double rho;
+        double delta;
+        int nearestHigher;
+        bool operator > (const RecHitGPU& rhs) const {
+                return (rho > rhs.rho);
+        }
 };
 
 typedef std::vector<RecHitGPU>       LayerRecHitsGPU;

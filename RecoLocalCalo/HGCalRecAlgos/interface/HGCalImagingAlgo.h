@@ -280,11 +280,17 @@ inline double distance2(const Hexel &pt1, const Hexel &pt2) const{   //distance 
         const double dy = pt1.y - pt2.y;
         return (dx*dx + dy*dy);
 }   //distance squaredq
+inline double distance2GPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   //distance squared
+        const double dx = pt1.x - pt2.x;
+        const double dy = pt1.y - pt2.y;
+        return (dx*dx + dy*dy);
+}   //distance squaredq
 inline double distance(const Hexel &pt1, const Hexel &pt2) const{   //2-d distance on the layer (x-y)
         return std::sqrt(distance2(pt1,pt2));
 }
 double calculateLocalDensity(std::vector<KDNode> &, KDTree &, const unsigned int) const;   //return max density
 double calculateDistanceToHigher(std::vector<KDNode> &) const;
+double calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const;
 int findAndAssignClusters(std::vector<KDNode> &, KDTree &, double, KDTreeBox &, const unsigned int, std::vector<std::vector<KDNode> >&) const;
 math::XYZPoint calculatePosition(std::vector<KDNode> &) const;
 
