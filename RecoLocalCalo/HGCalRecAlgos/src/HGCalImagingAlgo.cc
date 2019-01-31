@@ -17,6 +17,8 @@
 #include "RecoLocalCalo/HGCalRecAlgos/interface/GPUHist2D.h"
 #include <chrono>
 
+using namespace BinnerGPU;
+
 void HGCalImagingAlgo::populate(const HGCRecHitCollection &hits) {
   // loop over all hits and create the Hexel structure, skip energies below ecut
 
@@ -65,7 +67,7 @@ void HGCalImagingAlgo::populate(const HGCRecHitCollection &hits) {
         Hexel(hgrh, detid, isHalf, sigmaNoise, thickness, &rhtools_),
         position.x(), position.y());
 
-    recHitsGPU[layer].push_back({i, position.x(),position.y(), position.eta(),position.phi()});
+    recHitsGPU[layer].push_back({i, position.x(),position.y(), position.eta(),position.phi(),hgrh.energy(),0.0});
 
     // for each layer, store the minimum and maximum x and y coordinates for the
     // KDTreeBox boundaries
@@ -100,15 +102,16 @@ void HGCalImagingAlgo::makeClusters() {
 
   // For each layer, assign all RecHits to a bin of a Histo2D
   std::vector< BinnerGPU::Histo2D > histosGPU;
+
   for (auto&layer: recHitsGPU) {
     histosGPU.push_back( BinnerGPU::computeBins(layer) );
+    //std::cout<<BinnerGPU::computeBins(layer).data_[0].size() << std::endl;
   }
  
   auto finish = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> elapsed = finish - start;
   std::cout << "Elapsed time: " << elapsed.count() << " s\n";
 
-  return; // fixme: alternative temporary stopper for test purposes //ND
   //exit(0); // fixme: temporary stopper for test purposes
 
   layerClustersPerLayer_.resize(2 * maxlayer + 2);
@@ -127,6 +130,10 @@ void HGCalImagingAlgo::makeClusters() {
       double maxdensity = calculateLocalDensity(
           points_[i], hit_kdtree, actualLayer); // also stores rho (energy
                                                // density) for each point (node)
+      double maxdensityBin = calculateLocalDensityCPU(histosGPU[i],recHitsGPU[i],actualLayer);
+      //double maxdensityBin = 0.0;
+      std::cout << "LocalD: " << maxdensity << " LocalDBin: " << maxdensityBin << std::endl;
+      //std::cout << points_.size() << " " << histosGPU.size() << " " << recHitsGPU.size() << std::endl; 
       // calculate distance to nearest point with higher density storing
       // distance (delta) and point's index
       calculateDistanceToHigher(points_[i]);
@@ -135,6 +142,8 @@ void HGCalImagingAlgo::makeClusters() {
                             actualLayer, layerClustersPerLayer_[i]);
     });
   });
+
+  exit(0);
 }
 
 std::vector<reco::BasicCluster> HGCalImagingAlgo::getClusters(bool doSharing) {
@@ -918,3 +927,47 @@ void HGCalImagingAlgo::computeThreshold() {
   }
 
 }
+
+double HGCalImagingAlgo::calculateLocalDensityCPU(Histo2D hist, LayerRecHitsGPU hits, const unsigned int layer) const
+{
+   float delta_c; // maximum search distance (critical distance) for local
+                 // density calculation
+   if (layer <= lastLayerEE)
+    delta_c = vecDeltas_[0];
+   else if (layer <= lastLayerFH)
+    delta_c = vecDeltas_[1];
+   else
+    delta_c = vecDeltas_[2];
+   
+   double maxdensity = 0.0;
+   
+   size_t numBins = hist.data_.size();
+   
+   for (unsigned int i = 0; i < numBins; i++) 
+   {
+   	double tmpDensity = 0.0;
+	size_t binSize = hist.data_[i].size();
+	
+ 	for (unsigned int j = 0; j < binSize; j++)
+   	{	
+      		int idOne = hist.data_[i][j];
+      		for (unsigned int k = j; k < binSize; k++)
+      		{	 
+       			int idTwo = hist.data_[i][k];
+			if(distanceGPU(hits[idOne],hits[idTwo]) < delta_c)
+       			{
+			        std::cout << "Weights: " << hits[idTwo].weight << std::endl;
+				hits[idOne].rho += hits[idTwo].weight;
+				tmpDensity = std::max(tmpDensity,hits[idOne].rho);
+       			}
+      		}
+   	}
+	maxdensity = std::max(maxdensity,tmpDensity);
+   }
+
+   return maxdensity;
+}
+
+
+
+

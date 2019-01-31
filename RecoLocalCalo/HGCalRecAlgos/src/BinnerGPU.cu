@@ -34,21 +34,22 @@ namespace BinnerGPU {
     Histo2D hOutputData(minEta, maxEta, minPhi, maxPhi);
 
     // Allocate memory and put data into device
-    Histo2D *dOutputData;
+    Histo2D*   dOutputData;//(minEta, maxEta, minPhi, maxPhi);
     RecHitGPU* dInputData;
     cudaMalloc(&dOutputData, sizeof(Histo2D));
     cudaMalloc(&dInputData, sizeof(RecHitGPU)*layerData.size());
-    cudaMemcpy(dInputData, layerData.data(), sizeof(RecHitGPU)*layerData.size(), cudaMemcpyHostToDevice);
-    cudaMemset(dOutputData, 0x00, sizeof(Histo2D));
+    cudaMemcpy(&dInputData, layerData.data(), sizeof(RecHitGPU)*layerData.size(), cudaMemcpyHostToDevice);
+    cudaMemset(&dOutputData, 0x00, sizeof(Histo2D));
     cudaMemcpy(dOutputData, &hOutputData, sizeof(Histo2D), cudaMemcpyHostToDevice);
-  
+ 
     // Call the kernel
     const dim3 blockSize(1024,1,1);
     const dim3 gridSize(ceil(layerData.size()/1024.0),1,1);
     kernel_compute_histogram <<<gridSize,blockSize>>>(dInputData, dOutputData, layerData.size());
 
-    // Copy result back!
-    cudaMemcpy(dOutputData, &hOutputData, sizeof(Histo2D), cudaMemcpyDeviceToHost);
+    // Copy result back! 
+    cudaMemcpy(&hOutputData, dOutputData, sizeof(Histo2D), cudaMemcpyDeviceToHost);
+  
 
     // Free all the memory
     cudaFree(dOutputData);

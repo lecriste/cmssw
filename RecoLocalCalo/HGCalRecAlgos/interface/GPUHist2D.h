@@ -25,6 +25,7 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   {
     int xBin = computeXBinIndex(x);
     int yBin = computeYBinIndex(y);
+    
     if(data_[xBin + yBin*xDim].push_back_unsafe(idx) != -1)
       return true;
     else
@@ -36,10 +37,12 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   {
     int xBin = computeXBinIndex(x);
     int yBin = computeYBinIndex(y);
+ 
     if(data_[xBin + yBin*xDim].push_back(idx) != -1)
       return true;
-    else
-      return false;
+   else
+     return false;
+  
   }
   
   __host__ __device__
@@ -116,6 +119,7 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   inline constexpr GPU::VecArray<T, max_depth>& operator[](int i) { return data_[i]; }
 
   GPU::VecArray<GPU::VecArray<T, max_depth>, xDim*yDim> data_;
+  GPU::VecArray<GPU::VecArray<float, max_depth>, xDim*yDim> xs_,ys_;
   float limits_[4];
   float xBinSize_ = 0.0;
   float yBinSize_ = 0.0;

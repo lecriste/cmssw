@@ -25,6 +25,7 @@
 
 #include "KDTreeLinkerAlgoT.h"
 
+using namespace BinnerGPU;
 
 template <typename T>
 std::vector<size_t> sorted_indices(const std::vector<T> &v) {
@@ -327,7 +328,16 @@ inline double distance2GPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   
 inline double distance(const Hexel &pt1, const Hexel &pt2) const{   //2-d distance on the layer (x-y)
         return std::sqrt(distance2(pt1,pt2));
 }
+inline double distanceGPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   //distance squared
+         const double dx = pt1.x - pt2.x;
+         const double dy = pt1.y - pt2.y;
+         return sqrt(dx*dx + dy*dy);
+ } 
+
 double calculateLocalDensity(std::vector<KDNode> &, KDTree &, const unsigned int) const;   //return max density
+double calculateLocalDensityGPU(histogram2D<int, 28, 126, 20>, const LayerRecHitsGPU , const unsigned int,std::vector<double>) const;
+double calculateLocalDensityCPU(Histo2D, LayerRecHitsGPU, const unsigned int) const;
+
 double calculateDistanceToHigher(std::vector<KDNode> &) const;
 double calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const;
 int findAndAssignClusters(std::vector<KDNode> &, KDTree &, double, KDTreeBox &, const unsigned int, std::vector<std::vector<KDNode> >&) const;
