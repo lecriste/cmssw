@@ -29,6 +29,8 @@ void HGCalImagingAlgo::populate(const HGCRecHitCollection &hits) {
   }
 
   std::vector<bool> firstHit(2 * (maxlayer + 1), true);
+  std::vector<unsigned int> layerCounters(2 * (maxlayer + 1),0);
+
   for (unsigned int i = 0; i < hits.size(); ++i) {
 
     const HGCRecHit &hgrh = hits[i];
@@ -66,8 +68,19 @@ void HGCalImagingAlgo::populate(const HGCRecHitCollection &hits) {
     points_[layer].emplace_back(
         Hexel(hgrh, detid, isHalf, sigmaNoise, thickness, &rhtools_),
         position.x(), position.y());
-
-    recHitsGPU[layer].push_back({i, position.x(),position.y(), position.eta(),position.phi(),hgrh.energy(),0.0});
+    
+    RecHitGPU hit;
+    hit.index = layerCounters[layer]; 
+    hit.x = position.x();
+    hit.y = position.y();
+    hit.eta = std::fabs(position.eta());
+    hit.phi = position.phi();
+    hit.weight = hgrh.energy();
+    hit.rho = 0.0;
+ 
+    recHitsGPU[layer].push_back(hit);//{recHitCounter, position.x(),position.y(), position.eta(),position.phi(),hgrh.energy(),0.0});
+    
+    layerCounters[layer]++;
 
     // for each layer, store the minimum and maximum x and y coordinates for the
     // KDTreeBox boundaries
@@ -124,14 +137,25 @@ void HGCalImagingAlgo::makeClusters() {
           i > maxlayer
               ? (i - (maxlayer + 1))
               : i; // maps back from index used for KD trees to actual layer
-
+  	    std::cout<< "======= Layer "<< i ;
       double maxdensity = calculateLocalDensity(
           points_[i], hit_kdtree, actualLayer); // also stores rho (energy
                                                // density) for each point (node)
-      double maxdensityBin = calculateLocalDensityCPU(histosGPU[i],recHitsGPU[i],actualLayer);
+      double maxdensityBin = calculateLocalDensityCPU(histosGPU[i],recHitsGPU[i],i);
+      
       //double maxdensityBin = 0.0;
       std::cout << "LocalD: " << maxdensity << " LocalDBin: " << maxdensityBin << std::endl;
-      //std::cout << points_.size() << " " << histosGPU.size() << " " << recHitsGPU.size() << std::endl; 
+      std::cout << "Original : " << points_[i].size()<< std::endl; 
+      size_t numBins = histosGPU[i].data_.size();
+      int allrechitbinned = 0;
+      for (unsigned int ii = 0; ii < numBins; ii++)
+      {
+        double tmpDensity = 0.0;
+        size_t binSize = histosGPU[i].data_[ii].size();
+        allrechitbinned = allrechitbinned + binSize;
+     
+      } 
+      std::cout << "Histo - Num Bins : " << numBins << " Entries : " << allrechitbinned<<std::endl;
       // calculate distance to nearest point with higher density storing
       // distance (delta) and point's index
       calculateDistanceToHigher(points_[i]);
@@ -147,7 +171,6 @@ void HGCalImagingAlgo::makeClusters() {
     });
   });
 
-  //exit(0); //fixme: only for test purposes
 }
 
 std::vector<reco::BasicCluster> HGCalImagingAlgo::getClusters(bool doSharing) {
@@ -284,7 +307,8 @@ double HGCalImagingAlgo::calculateLocalDensity(std::vector<KDNode> &nd,
     delta_c = vecDeltas_[1];
   else
     delta_c = vecDeltas_[2];
-
+  
+  std::cout << " - delta : " << delta_c << std::endl;
   // for each node calculate local density rho and store it
   for (unsigned int i = 0; i < nd.size(); ++i) {
     // speec up search by looking within +/- delta_c window only
@@ -293,12 +317,19 @@ double HGCalImagingAlgo::calculateLocalDensity(std::vector<KDNode> &nd,
     std::vector<KDNode> found;
     lp.search(search_box, found);
     const unsigned int found_size = found.size();
+  //  std::cout << i << " ";
+int counter = 0;
     for (unsigned int j = 0; j < found_size; j++) {
+ 
       if (distance(nd[i].data, found[j].data) < delta_c) {
         nd[i].data.rho += found[j].data.weight;
         maxdensity = std::max(maxdensity, nd[i].data.rho);
+	counter++;      
       }
+
     } // end loop found
+   std::cout << i << " has " << counter << " neighbours - energy : " << nd[i].data.weight << " - rho " << nd[i].data.rho <<std::endl;
+
   }   // end loop nodes
   return maxdensity;
 }
@@ -361,10 +392,10 @@ HGCalImagingAlgo::calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const
 
   // sort vector of Hexels by decreasing local density
   std::vector<size_t> rs = sorted_indices(nd);
-  for (size_t n = 0; n < rs.size(); n++)
-    std::cout <<rs[n] <<" ";
-  std::cout <<std::endl;
-  //exit(0); //fixme: only for test purposes
+  //for (size_t n = 0; n < rs.size(); n++)
+    //std::cout <<rs[n] <<" ";
+  //std::cout <<std::endl;
+  //exit(0);
 
   double maxdensity = 0.0;
   int nearestHigher = -1;
@@ -971,17 +1002,22 @@ double HGCalImagingAlgo::calculateLocalDensityCPU(Histo2D hist, LayerRecHitsGPU 
 	
  	for (unsigned int j = 0; j < binSize; j++)
    	{	
+		int counter = 0;
       		int idOne = hist.data_[i][j];
+	
       		for (unsigned int k = j; k < binSize; k++)
       		{	 
        			int idTwo = hist.data_[i][k];
+		//std::cout << idTwo << " - ";	
 			if(distanceGPU(hits[idOne],hits[idTwo]) < delta_c)
        			{
-			        std::cout << "Weights: " << hits[idTwo].weight << std::endl;
+				
+			       counter++;
 				hits[idOne].rho += hits[idTwo].weight;
 				tmpDensity = std::max(tmpDensity,hits[idOne].rho);
        			}
       		}
+		std::cout << "layer : " << layer << " - " << idOne << " has " << counter << " neighbours - energy : " << hits[idOne].weight << " - rho " << hits[idOne].rho <<std::endl;
    	}
 	maxdensity = std::max(maxdensity,tmpDensity);
    }
