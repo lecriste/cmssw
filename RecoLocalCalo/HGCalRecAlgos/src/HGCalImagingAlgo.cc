@@ -614,8 +614,8 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
   //     sort_by_delta(layerRecHitsGPU); // sort in decreasing distance to higher
 
   GPU::VecArray<int, BinnerGPU::MAX_DEPTH> rs, ds;
-  uint nds = 0;
-  uint nrs = 0;
+  uint nds, nrs, nRH; 
+  nds = nrs = nRH = 0; 
   //const unsigned int layerRecHitsGPU_size = layerRecHitsGPU.size();
 
   // Loop over bins from binsGPU
@@ -631,6 +631,7 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
 
       // Get list of RecHit indices from the 2d histogram
       indicesRH = histoGPU.getBinContent(iEta, iPhi);
+      nRH       = (uint)indicesRH.size();
 
       // Build a vector containing all the RecHitGPU from the current 2D bin
       //binRecHitsGpu = 0;
@@ -643,12 +644,11 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
       nds = (uint)ds.size(); // fixme: cast is ok?
 
       // First step: find cluster seeds by looping over RecHis sorted by decreasing rho
-      std::cout << "---- Bin (iEta,iPhi)=(" << iEta 
-		<< "," << iPhi << ")" << std::endl
-		<< "---- Start looping over nds=" << nds 
-		<< " RecHits (sorted by decreasing rho)" << std::endl
-		<< "---- By the way, there are nrs=" << nrs 
-		<< " RecHits (sorted by derceasing distance to nearest local max)" << std::endl;
+      std::cout << "---- Bin (iEta,iPhi)=(" << iEta << "," << iPhi << ")" 
+		<< std::endl
+		<< "---- Start looping over the RecHits in this bin:"
+		<< " nRH=" << nRH << " nds=" << nds << " nrs=" << nrs
+		<< std::endl;
       //
       for(uint idxRh = 0; idxRh < nds; ++idxRh) { 
 
