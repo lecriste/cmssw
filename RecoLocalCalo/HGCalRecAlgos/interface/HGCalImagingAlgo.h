@@ -158,8 +158,10 @@ void getEventSetup(const edm::EventSetup& es){
 }
 // use this if you want to reuse the same cluster object but don't want to accumulate clusters (hardly useful?)
 void reset(){
-        clusters_v_.clear();
-        layerClustersPerLayer_.clear();
+        clusters_v_              .clear();
+        layerClustersPerLayer_   .clear();
+        layerClustersPerLayerCPU_.clear();
+        layerClustersPerLayerGPU_.clear();
         for( auto& it: points_)
         {
                 it.clear();
@@ -273,6 +275,8 @@ typedef KDTreeNodeInfoT<Hexel,2> KDNode;
 
 
 std::vector<std::vector<std::vector< KDNode> > > layerClustersPerLayer_;
+std::vector<std::vector<std::vector< RecHitGPU> > > layerClustersPerLayerCPU_;
+std::vector<std::vector<std::vector< RecHitGPU> > > layerClustersPerLayerGPU_;
 
 std::vector<size_t> sort_by_delta(const std::vector<KDNode> &v) const {
         std::vector<size_t> idx(v.size());
@@ -342,10 +346,10 @@ double calculateDistanceToHigher(std::vector<KDNode> &) const;
 double calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const;
 int findAndAssignClusters(std::vector<KDNode> &, KDTree &, double, KDTreeBox &, const unsigned int, std::vector<std::vector<KDNode> >&) const;
 
-int findAndAssignClustersGPU(
+int findAndAssignClustersCPU(
     double maxdensity,  const unsigned int layer,
     LayerRecHitsGPU &layerRecHitsGPU, const BinnerGPU::Histo2D histoGPU,   
-    std::vector<std::vector<KDNode>> &clustersOnLayer) const;
+    std::vector<std::vector<RecHitGPU>> &clustersOnLayer) const;
 
 math::XYZPoint calculatePosition(std::vector<KDNode> &) const;
 
