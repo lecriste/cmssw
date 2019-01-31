@@ -112,8 +112,6 @@ void HGCalImagingAlgo::makeClusters() {
   std::chrono::duration<double> elapsed = finish - start;
   std::cout << "Elapsed time: " << elapsed.count() << " s\n";
 
-  //exit(0); // fixme: temporary stopper for test purposes
-
   layerClustersPerLayer_.resize(2 * maxlayer + 2);
   // assign all hits in each layer to a cluster core or halo
   tbb::this_task_arena::isolate([&] {
@@ -138,12 +136,18 @@ void HGCalImagingAlgo::makeClusters() {
       // distance (delta) and point's index
       calculateDistanceToHigher(points_[i]);
       calculateDistanceToHigherGPU(recHitsGPU[i]);
+
       findAndAssignClusters(points_[i], hit_kdtree, maxdensity, bounds,
                             actualLayer, layerClustersPerLayer_[i]);
+
+      findAndAssignClustersGPU(maxdensity, actualLayer,
+			       recHitsGPU[i], histosGPU[i], 
+			       layerClustersPerLayer_[i]);
+
     });
   });
 
-  exit(0);
+  //exit(0); //fixme: only for test purposes
 }
 
 std::vector<reco::BasicCluster> HGCalImagingAlgo::getClusters(bool doSharing) {
@@ -360,7 +364,7 @@ HGCalImagingAlgo::calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const
   for (size_t n = 0; n < rs.size(); n++)
     std::cout <<rs[n] <<" ";
   std::cout <<std::endl;
-  exit(0);
+  //exit(0); //fixme: only for test purposes
 
   double maxdensity = 0.0;
   int nearestHigher = -1;
@@ -579,6 +583,8 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
   //     sort_by_delta(layerRecHitsGPU); // sort in decreasing distance to higher
 
   GPU::VecArray<int, BinnerGPU::MAX_DEPTH> rs, ds;
+  uint nds = 0;
+  uint nrs = 0;
   //const unsigned int layerRecHitsGPU_size = layerRecHitsGPU.size();
 
   // Loop over bins from binsGPU
@@ -586,7 +592,9 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
   LayerRecHitsGPU binRecHitsGpu;
   RecHitGPU recHitGpu;
   //
-  if (verbosity_ < pINFO) std::cout << "--- Start loop over bins from binsGPU" << std::endl;
+  //if (verbosity_ < pINFO)  //fixme
+  std::cout << "-- Start loop over bins from binsGPU" << std::endl;
+
   for(unsigned int iEta = 0; iEta < BinnerGPU::ETA_BINS; ++iEta) {
     for(unsigned int iPhi = 0; iPhi < BinnerGPU::PHI_BINS; ++iPhi) {
 
@@ -599,9 +607,19 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
       // Sort the RecHits from the current 2D bin
       rs = sorted_indices(layerRecHitsGPU, indicesRH); // indices sorted by decreasing rho
       ds = sort_by_delta( layerRecHitsGPU, indicesRH); // sort in decreasing distance to higher
+      //
+      nrs = (uint)rs.size(); // fixme: cast is ok?
+      nds = (uint)ds.size(); // fixme: cast is ok?
 
       // First step: find cluster seeds by looping over RecHis sorted by decreasing rho
-      for(uint idxRh = 0; idxRh < (uint)ds.size(); ++idxRh) { // fixme: cast is ok?
+      std::cout << "---- Bin (iEta,iPhi)=(" << iEta 
+		<< "," << iPhi << ")" << std::endl
+		<< "---- Start looping over nds=" << nds 
+		<< " RecHits (sorted by decreasing rho)" << std::endl
+		<< "---- By the way, there are nrs=" << nrs 
+		<< " RecHits (sorted by derceasing distance to nearest local max)" << std::endl;
+      //
+      for(uint idxRh = 0; idxRh < nds; ++idxRh) { 
 
 	// Get the RecHit corresponding to this index
 	if( idxRh < layerRecHitsGPU.size() ) {
@@ -631,11 +649,11 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
 	  continue; // cut based on maximal local density
 
 	recHitGpu.clusterIndex = nClustersOnLayer;
-	if (verbosity_ < pINFO) {
-	  std::cout << "Adding new cluster with index " << nClustersOnLayer
-		    << std::endl;
+	//if (verbosity_ < pINFO) { //fixme
+	std::cout << "Adding new cluster with index " << nClustersOnLayer
+		  << std::endl;
 	  //std::cout << "Cluster center is hit " << ds[i] << std::endl;
-	}
+	  //	}
 	nClustersOnLayer++;
 
       } // end loop over MAX_DEPTH
@@ -737,6 +755,9 @@ int HGCalImagingAlgo::findAndAssignClustersGPU(
     std::cout << "moving cluster offset by " << nClustersOnLayer << std::endl;
   }
 	*/
+
+  std::cout << "-- End findAndAssignClusters()." << std::endl;
+
   return nClustersOnLayer;
 }
 
