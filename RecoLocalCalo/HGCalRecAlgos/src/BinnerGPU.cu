@@ -20,7 +20,7 @@ namespace BinnerGPU {
     unsigned int index = dInputData[rechitLocation].index;
    
     dOutputData->fillBinGPU(eta, phi, index);
-
+    //printf("%d %.2f %.2f %d \n",index,eta,phi,rechitLocation);
   }
 
 
@@ -38,7 +38,7 @@ namespace BinnerGPU {
     RecHitGPU* dInputData;
     cudaMalloc(&dOutputData, sizeof(Histo2D));
     cudaMalloc(&dInputData, sizeof(RecHitGPU)*layerData.size());
-    cudaMemcpy(&dInputData, layerData.data(), sizeof(RecHitGPU)*layerData.size(), cudaMemcpyHostToDevice);
+    cudaMemcpy(dInputData, layerData.data(), sizeof(RecHitGPU)*layerData.size(), cudaMemcpyHostToDevice);
     cudaMemset(&dOutputData, 0x00, sizeof(Histo2D));
     cudaMemcpy(dOutputData, &hOutputData, sizeof(Histo2D), cudaMemcpyHostToDevice);
  
