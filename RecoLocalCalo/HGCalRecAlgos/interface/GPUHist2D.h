@@ -46,14 +46,14 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   }
   
   __host__ __device__
-  int computeXBinIndex(float x)
+  int computeXBinIndex(float x) const
   {
     int xIndex = floor((std::abs(x) - limits_[0]) / xBinSize_);
     return xIndex;
   }
 
   __host__ __device__
-  int computeYBinIndex(float y) 
+  int computeYBinIndex(float y) const
   {
     int yIndex = floor((y + limits_[3]) / yBinSize_);
     return yIndex;
