@@ -147,15 +147,17 @@ void HGCalImagingAlgo::makeClusters() {
 
       std::vector<size_t> rs = sorted_indices(points_[i]);
       std::vector<size_t> rsGPU = sorted_indices(recHitsGPU[i]);
-      for(size_t zz = 0; zz < 10; ++zz){
-        std::cout << "\npoint \n" <<
-        points_[i][rs[zz]].data.delta << ", " <<
-        points_[i][rs[zz]].data.nearestHigher << std::endl;
+      /*
+	for(size_t zz = 0; zz < 10; ++zz){
+	  std::cout << "\npoint \n" <<
+	    points_[i][rs[zz]].data.delta << ", " <<
+	    points_[i][rs[zz]].data.nearestHigher << std::endl;
 
-        std::cout << "recHit \n" <<
-        recHitsGPU[i][rsGPU[zz]].delta << ", " <<
-        recHitsGPU[i][rsGPU[zz]].nearestHigher << std::endl;
-      }
+	  std::cout << "recHit \n" <<
+	    recHitsGPU[i][rsGPU[zz]].delta << ", " <<
+	    recHitsGPU[i][rsGPU[zz]].nearestHigher << std::endl;
+	}
+      */
 
       findAndAssignClusters(points_[i], hit_kdtree, maxdensity, bounds,
                             actualLayer, layerClustersPerLayer_[i]);
