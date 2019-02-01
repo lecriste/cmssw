@@ -339,7 +339,7 @@ inline double distance2GPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   
 inline double distance(const Hexel &pt1, const Hexel &pt2) const{   //2-d distance on the layer (x-y)
         return std::sqrt(distance2(pt1,pt2));
 }
-inline double distanceCPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   //distance squared
+inline double distanceCPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   //distance 
          const double dx = pt1.x - pt2.x;
          const double dy = pt1.y - pt2.y;
          return std::sqrt(dx*dx + dy*dy);
