@@ -119,7 +119,7 @@ template <class T, int xDim, int yDim, int max_depth> struct histogram2D{
   inline constexpr GPU::VecArray<T, max_depth>& operator[](int i) { return data_[i]; }
 
   GPU::VecArray<GPU::VecArray<T, max_depth>, xDim*yDim> data_;
-  GPU::VecArray<GPU::VecArray<float, max_depth>, xDim*yDim> xs_,ys_;
+  
   float limits_[4];
   float xBinSize_ = 0.0;
   float yBinSize_ = 0.0;

@@ -115,5 +115,75 @@ double calculateLocalDensityGPU(BinnerGPU::Histo2D theHist, const LayerRecHitsGP
 
 }//calcualteLocalDensity
 
+__device__ double distance2GPU(const RecHitGPU pt1, const RecHitGPU pt2){   //distance squared
+  const double dx = pt1.x - pt2.x;
+  const double dy = pt1.y - pt2.y;
+  return (dx*dx + dy*dy);
+} 
+
+__global__ void kenrel_compute_distance_ToHigher(
+    RecHitGPU* nd,
+    size_t* rs, 
+    int* nearestHigher,
+    const double* max_dist2
+){
+  size_t oi = threadIdx.x + 1;
+
+  {
+    double dist2 = *max_dist2;
+    unsigned int i = rs[oi];
+    // we only need to check up to oi since hits
+    // are ordered by decreasing density
+    // and all points coming BEFORE oi are guaranteed to have higher rho
+    // and the ones AFTER to have lower rho
+    for (unsigned int oj = 0; oj < oi; ++oj) {
+      unsigned int j = rs[oj];
+      double tmp = distance2GPU(nd[i], nd[j]);
+      if (tmp <= dist2) { // this "<=" instead of "<" addresses the (rare) case
+                          // when there are only two hits
+        dist2 = tmp;
+        *nearestHigher = j;
+      }
+    }
+    nd[i].delta = sqrt(dist2);
+    // this uses the original unsorted hitlist
+    nd[i].nearestHigher = *nearestHigher;
+  }
+}
+
+void launch_kenrel_compute_distance_ToHigher(
+  std::vector<RecHitGPU>& nd,
+  std::vector<size_t>& rs,
+  int& nearestHigher,
+  const double max_dist2
+){
+  RecHitGPU* g_nd;
+  size_t* g_rs; 
+  int* g_nearestHigher;
+  double* g_max_dist2;
+
+  cudaMalloc(&g_nd, sizeof(RecHitGPU)*nd.size());
+  cudaMalloc(&g_rs, sizeof(size_t)*rs.size());
+  cudaMalloc(&g_nearestHigher,sizeof(int));
+  cudaMalloc(&g_max_dist2, sizeof(double));
+
+  cudaMemcpy(g_nd,            &nd[0],            sizeof(RecHitGPU)*nd.size(), cudaMemcpyHostToDevice);
+  cudaMemcpy(g_rs,            &rs[0],            sizeof(size_t)*rs.size(), cudaMemcpyHostToDevice);
+  cudaMemcpy(g_nearestHigher, &nearestHigher, sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(g_max_dist2,     &max_dist2,     sizeof(double), cudaMemcpyHostToDevice);
+
+  const dim3 blockSize(nd.size()-1,1,1);
+  const dim3 gridSize(1,1,1);
+  kenrel_compute_distance_ToHigher <<<gridSize,blockSize>>>(g_nd, g_rs, g_nearestHigher,g_max_dist2);
+
+  cudaMemcpy(&nd[0],             g_nd,            sizeof(RecHitGPU)*nd.size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&rs[0],             g_rs,            sizeof(size_t)*rs.size(), cudaMemcpyDeviceToHost);
+  cudaMemcpy(&nearestHigher,  g_nearestHigher, sizeof(int), cudaMemcpyDeviceToHost);
+
+  cudaFree(g_nd);
+  cudaFree(g_rs);
+  cudaFree(g_nearestHigher);
+  cudaFree(g_max_dist2);
+}
 
 }//namespace

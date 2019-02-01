@@ -15,12 +15,11 @@ namespace BinnerGPU {
     if(rechitLocation >= numRechits)
         return;
 
-    float eta = dInputData[rechitLocation].eta;
-    float phi = dInputData[rechitLocation].phi;
-    unsigned int index = dInputData[rechitLocation].index;
+    float x = dInputData[rechitLocation].x;
+    float y = dInputData[rechitLocation].y;
    
-    dOutputData->fillBinGPU(eta, phi, index);
-    //printf("%d %.2f %.2f %d \n",index,eta,phi,rechitLocation);
+    dOutputData->fillBinGPU(x, y, rechitLocation);
+
   }
 
 
@@ -29,28 +28,28 @@ namespace BinnerGPU {
   float minPhi = -M_PI;
   float maxPhi = M_PI;
 
-//  std::shared_ptr<int> 
+  float minX = -500.0, minY = -500.0;
+  float maxX = 500.0, maxY = 500.0;
+
   Histo2D computeBins(std::vector<RecHitGPU> layerData) {
-    Histo2D hOutputData(minEta, maxEta, minPhi, maxPhi);
+    Histo2D hOutputData(minX, maxX, minY, maxY);
 
     // Allocate memory and put data into device
-    Histo2D*   dOutputData;//(minEta, maxEta, minPhi, maxPhi);
+    Histo2D *dOutputData;
     RecHitGPU* dInputData;
     cudaMalloc(&dOutputData, sizeof(Histo2D));
     cudaMalloc(&dInputData, sizeof(RecHitGPU)*layerData.size());
     cudaMemcpy(dInputData, layerData.data(), sizeof(RecHitGPU)*layerData.size(), cudaMemcpyHostToDevice);
-    cudaMemset(&dOutputData, 0x00, sizeof(Histo2D));
+    cudaMemset(dOutputData, 0x00, sizeof(Histo2D));
     cudaMemcpy(dOutputData, &hOutputData, sizeof(Histo2D), cudaMemcpyHostToDevice);
- 
     // Call the kernel
     const dim3 blockSize(1024,1,1);
     const dim3 gridSize(ceil(layerData.size()/1024.0),1,1);
     kernel_compute_histogram <<<gridSize,blockSize>>>(dInputData, dOutputData, layerData.size());
 
-    // Copy result back! 
+    // Copy result back!
     cudaMemcpy(&hOutputData, dOutputData, sizeof(Histo2D), cudaMemcpyDeviceToHost);
   
-
     // Free all the memory
     cudaFree(dOutputData);
     cudaFree(dInputData);

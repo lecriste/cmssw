@@ -25,6 +25,8 @@
 
 #include "KDTreeLinkerAlgoT.h"
 
+#include "HeterogeneousCore/CUDAUtilities/interface/GPUVecArray.h"
+
 using namespace BinnerGPU;
 
 template <typename T>
@@ -166,6 +168,11 @@ void reset(){
         {
                 it.clear();
                 std::vector<KDNode>().swap(it);
+        }
+        for( auto& it: recHitsGPU)
+        {
+                it.clear();
+                std::vector<RecHitGPU>().swap(it);
         }
         for(unsigned int i = 0; i < minpos_.size(); i++)
         {
@@ -332,15 +339,15 @@ inline double distance2GPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   
 inline double distance(const Hexel &pt1, const Hexel &pt2) const{   //2-d distance on the layer (x-y)
         return std::sqrt(distance2(pt1,pt2));
 }
-inline double distanceGPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   //distance squared
+inline double distanceCPU(const RecHitGPU &pt1, const RecHitGPU &pt2) const{   //distance squared
          const double dx = pt1.x - pt2.x;
          const double dy = pt1.y - pt2.y;
-         return sqrt(dx*dx + dy*dy);
+         return std::sqrt(dx*dx + dy*dy);
  } 
 
 double calculateLocalDensity(std::vector<KDNode> &, KDTree &, const unsigned int) const;   //return max density
-double calculateLocalDensityGPU(histogram2D<int, 28, 126, 20>, const LayerRecHitsGPU , const unsigned int,std::vector<double>) const;
-double calculateLocalDensityCPU(Histo2D, LayerRecHitsGPU, const unsigned int) const;
+double calculateLocalDensityGPU(Histo2D, LayerRecHitsGPU , unsigned int,std::vector<double>) const;
+double calculateLocalDensityCPU(Histo2D, LayerRecHitsGPU &, const unsigned int) const;
 
 double calculateDistanceToHigher(std::vector<KDNode> &) const;
 double calculateDistanceToHigherGPU(std::vector<RecHitGPU> &nd) const;
@@ -367,5 +374,15 @@ HgcRecHitsGPU recHitsGPU;
 
 
 };
+
+namespace HGCalRecAlgos {
+        double calculateLocalDensityGPU(BinnerGPU::Histo2D theHist, const LayerRecHitsGPU theHits, const unsigned int layer,std::vector<double> vecDeltas_);
+        void launch_kenrel_compute_distance_ToHigher(
+                std::vector<RecHitGPU>& nd,
+                std::vector<size_t>& rs,
+                int& nearestHigher,
+                const double max_dist2
+        );
+}
 
 #endif
