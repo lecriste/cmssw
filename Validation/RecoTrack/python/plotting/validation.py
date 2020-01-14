@@ -345,6 +345,7 @@ _globalTags = {
                                     "Design": "100X_upgrade2018_design_IdealBS_v3_mahiON"},
     "CMSSW_10_0_0_pre3_GEANT4_2018_mahi": {"default": "100X_upgrade2018_realistic_v4_mahiON"},
     "CMSSW_10_0_0_pre3_G4VecGeom2_2018": {"default": "100X_upgrade2018_realistic_v4"},
+    "CMSSW_11_0_0_pre7" : {"default": "110X_mcRun4_realistic_v1"},
 }
 
 _releasePostfixes = ["_AlcaCSA14", "_PHYS14", "_TEST", "_v2", "_v3", "_pmx", "_Fall14DR", "_FIXGT", "_PU", "_PXbest", "_PXworst", "_hcal", "_tec", "_71XGENSIM", "_73XGENSIM", "_BS", "_GenSim_7113", "_extended",
@@ -433,6 +434,7 @@ _relvalUrls = {
     "9_3_X": "https://cmsweb.cern.ch/dqm/relval/data/browse/ROOT/RelVal/CMSSW_9_3_x/",
     "9_4_X": "https://cmsweb.cern.ch/dqm/relval/data/browse/ROOT/RelVal/CMSSW_9_4_x/",
     "10_0_X": "https://cmsweb.cern.ch/dqm/relval/data/browse/ROOT/RelVal/CMSSW_10_0_x/",
+    "11_0_X": "https://cmsweb.cern.ch/dqm/relval/data/browse/ROOT/RelVal/CMSSW_11_0_x/",
 }
 
 _doElectronSamples = [
@@ -757,7 +759,7 @@ class Validation:
             if p.returncode != 0:
                 print("file command failed with exit code %d" % p.returncode)
                 sys.exit(1)
-            if not "ROOT" in stdout:
+            if not ".root" in stdout:
                 print("File {f} is not ROOT, please check the correct version, GlobalTag etc. from {url}".format(f=f, url=relvalUrl))
                 allFine = False
                 if os.path.exists(f):

@@ -1,19 +1,24 @@
 import FWCore.ParameterSet.Config as cms
 
-#from Configuration.Eras.Era_Phase2C4_timing_layer_bar_cff import Phase2C4_timing_layer_bar
-#process = cms.Process('PROD',Phase2C4_timing_layer_bar)
-#process.load('Configuration.Geometry.GeometryExtended2026D35_cff')
-#process.load('Configuration.Geometry.GeometryExtended2026D35Reco_cff')
+geometry = 'D35'
+geometry = 'D41'
+geometry = 'D46'
 
-from Configuration.Eras.Era_Phase2C8_timing_layer_bar_cff import Phase2C8_timing_layer_bar
-process = cms.Process('PROD',Phase2C8_timing_layer_bar)
-process.load('Configuration.Geometry.GeometryExtended2026D41_cff')
-process.load('Configuration.Geometry.GeometryExtended2026D41Reco_cff')
-
-#from Configuration.Eras.Era_Phase2C9_timing_layer_bar_cff import Phase2C9_timing_layer_bar
-#process = cms.Process('PROD',Phase2C9_timing_layer_bar)
-#process.load('Configuration.Geometry.GeometryExtended2026D46_cff')
-#process.load('Configuration.Geometry.GeometryExtended2026D46Reco_cff')
+if geometry == 'D35':
+    from Configuration.Eras.Era_Phase2C4_timing_layer_bar_cff import Phase2C4_timing_layer_bar
+    process = cms.Process('PROD',Phase2C4_timing_layer_bar)
+    process.load('Configuration.Geometry.GeometryExtended2026D35_cff')
+    process.load('Configuration.Geometry.GeometryExtended2026D35Reco_cff')
+elif geometry == 'D41':
+    from Configuration.Eras.Era_Phase2C8_timing_layer_bar_cff import Phase2C8_timing_layer_bar
+    process = cms.Process('PROD',Phase2C8_timing_layer_bar)
+    process.load('Configuration.Geometry.GeometryExtended2026D41_cff')
+    process.load('Configuration.Geometry.GeometryExtended2026D41Reco_cff')
+elif geometry == 'D46':
+    from Configuration.Eras.Era_Phase2C9_timing_layer_bar_cff import Phase2C9_timing_layer_bar
+    process = cms.Process('PROD',Phase2C9_timing_layer_bar)
+    process.load('Configuration.Geometry.GeometryExtended2026D46_cff')
+    process.load('Configuration.Geometry.GeometryExtended2026D46Reco_cff')
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 process.load("Configuration.StandardSequences.MagneticField_cff")
@@ -26,8 +31,9 @@ process.GlobalTag.globaltag = autoCond['phase2_realistic']
 
 process.source = cms.Source("PoolSource",
                             fileNames = cms.untracked.vstring(
-        'file:step1_29034.root',
-#       'root://cms-xrd-global.cern.ch//store/relval/CMSSW_9_1_1_patch1/RelValSingleElectronPt35Extended/GEN-SIM-RECO/91X_upgrade2023_realistic_v1_D17-v1/10000/10D95AC2-B14A-E711-BC4A-0CC47A7C3638.root',
+        #'file:step1_29034.root',
+        #'root://cmsxrootd.fnal.gov//store/relval/CMSSW_11_0_0_pre7/RelValSingleMuPt10/GEN-SIM-DIGI-RAW/110X_mcRun4_realistic_v1_2026D41noPU-v1/10000/EF277881-D8DF-784C-B68E-938872CB39D0.root', # not accessible
+        'root://cmsxrootd.fnal.gov///store/relval/CMSSW_11_0_0_pre7/RelValSingleMuPt10/GEN-SIM-DIGI-RAW/110X_mcRun4_realistic_v1_2026D41noPU-v1/10000/62AEE413-64C4-3241-AE73-466BCD8EE252.root',
         )
                             )
 
@@ -36,7 +42,7 @@ process.maxEvents = cms.untracked.PSet(
 )
 
 process.TFileService = cms.Service("TFileService",
-                                   fileName = cms.string('hgcSimHitD41tt.root'),
+                                   fileName = cms.string('hgcSimHit'+geometry+'tt.root'),
                                    closeFileFast = cms.untracked.bool(True)
                                    )
 
