@@ -4,6 +4,7 @@ import sys
 import os
 import commands
 import optparse
+import getpass
 
 from Validation.RecoTrack.plotting.validation import Sample, Validation
 
@@ -14,8 +15,8 @@ def parseOptions():
              + '%prog -h for help')
     parser = optparse.OptionParser(usage)
 
-    parser.add_option('', '--Obj', dest='OBJ',  type='string', default='SimHits', help='Object to run. Options are: Geometry, SimHits, Digis, RecHits, Calibrations, CaloParticles, hgcalLayerClusters')
-    parser.add_option('', '--html-validation-name', dest='HTMLVALNAME', type='string', default='', help='Could be either be hgcalLayerClusters or hgcalMultiClusters')
+    parser.add_option('', '--Obj', dest='OBJ',  type='string', default='SimHits', help='Object to run. Options are: Geometry, SimHits (default), Digis, RecHits, Calibrations, CaloParticles, hgcalLayerClusters')
+    parser.add_option('', '--html-validation-name', dest='HTMLVALNAME', type='string', default='', help='Could be either hgcalLayerClusters or hgcalMultiClusters')
     parser.add_option('-d', '--download', action='store_true', dest='DOWNLOAD', default=False, help='Download DQM files from RelVals')
     parser.add_option('-y', '--dry-run', action='store_true', dest='DRYRUN', default=False, help='perform a dry run (no jobs are lauched).')
 
@@ -46,7 +47,8 @@ def putype(t):
 RefRelease='CMSSW_11_0_0_pre12' #None#'CMSSW_10_6_0_patch2 
 
 ### Relval release 
-NewRelease='CMSSW_11_0_0_pre13'
+#NewRelease='CMSSW_11_0_0_pre13'
+NewRelease='CMSSW_11_0_0_pre7'
 
 #phase2samples_test = [
 #    Sample("RelValQCDPt20toInf", midfix="MuEnrichPt15_14TeV", scenario="2026D49", appendGlobalTag="_2026D49noPU")
@@ -159,10 +161,17 @@ phase2samples_noPU = [
 #
 #]
 
+username = getpass.getuser()
+# Web dir for plots
+webDir = '/eos/user/'+username[0]+'/'+username+'/HGCal/www/RelVals/'
+indexFile = '/afs/cern.ch/work/l/lecriste/www/index.php'
+processCmd('cp '+indexFile+' '+webDir)
+
+processCmd('mkdir -p '+webDir+NewRelease)
 
 ### Reference and new repository
-RefRepository = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/apsallid/RelVals'
-NewRepository = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/apsallid/RelVals' 
+RefRepository = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/'+username+'/RelVals'
+NewRepository = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/'+username+'/RelVals'
 
 #HGCal validation plots
 val = Validation(
@@ -256,16 +265,16 @@ if (opt.OBJ == 'SimHits'):
     if (not os.path.isdir("hgcalSimHitStudy")) :
         processCmd('mkdir -p hgcalSimHitStudy')
     #Prepare for www
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalSimHitStudy/.')
+    processCmd('cp '+webDir+'index.php hgcalSimHitStudy/.')
 
-    #The input to this is for the moment 100 GeV muon from runnin cmsRun runHGCalSimHitStudy_cfg.py 
+    #The input to this is for the moment 100 GeV muon from running cmsRun HGCalValidation/test/python/runHGCalSimHitStudy_cfg.py
     #Input: hgcSimHits.root
     cmd = 'root.exe -b -q validationplots.C\(\\"hgcSimHit.root' +  '\\",\\"'+ opt.OBJ + '\\"\)'
     if(opt.DRYRUN):
         print 'Dry-run: ['+cmd+']'
     else:
-        output = processCmd(cmd)
-        processCmd('cp -r hgcalSimHitStudy /eos/user/a/apsallid/www/RelVals/' + NewRelease + '/.')
+        output = processCmd(cmd) # should catch the exit status of this command and print something meaningful
+        processCmd('cp -r hgcalSimHitStudy '+webDir + NewRelease + '/.')
 
 ############################################################################################
 if (opt.OBJ == 'hitValidation'):
@@ -338,10 +347,10 @@ if (opt.OBJ == 'Digis'):
         processCmd('mkdir -p hgcalDigiStudyHEF')
         processCmd('mkdir -p hgcalDigiStudyHEB')
     #Prepare for www
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalDigiStudy/.')
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalDigiStudyEE/.')
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalDigiStudyHEF/.')
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalDigiStudyHEB/.')
+    processCmd('cp '+webDir+'index.php hgcalDigiStudy/.')
+    processCmd('cp '+webDir+'index.php hgcalDigiStudyEE/.')
+    processCmd('cp '+webDir+'index.php hgcalDigiStudyHEF/.')
+    processCmd('cp '+webDir+'index.php hgcalDigiStudyHEB/.')
    #The input here is from running cmsRun runHGCalDigiStudy_cfg.py, to which 
     #we usually give ttbar noPU as input 
     #Input: hgcDigi.root
@@ -354,7 +363,7 @@ if (opt.OBJ == 'Digis'):
         processCmd('mv hgcalDigiStudyEE hgcalDigiStudy/.')
         processCmd('mv hgcalDigiStudyHEF hgcalDigiStudy/.')
         processCmd('mv hgcalDigiStudyHEB hgcalDigiStudy/.')
-        processCmd('cp -r hgcalDigiStudy /eos/user/a/apsallid/www/RelVals/' + NewRelease + '/.')
+        processCmd('cp -r hgcalDigiStudy '+webDir + NewRelease + '/.')
 
 ############################################################################################
 #This is the RecHits part
@@ -366,10 +375,10 @@ if (opt.OBJ == 'RecHits'):
         processCmd('mkdir -p hgcalRecHitStudyHEF')
         processCmd('mkdir -p hgcalRecHitStudyHEB')
     #Prepare for www
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalRecHitStudy/.')
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalRecHitStudyEE/.')
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalRecHitStudyHEF/.')
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php hgcalRecHitStudyHEB/.')
+    processCmd('cp '+webDir+'index.php hgcalRecHitStudy/.')
+    processCmd('cp '+webDir+'index.php hgcalRecHitStudyEE/.')
+    processCmd('cp '+webDir+'index.php hgcalRecHitStudyHEF/.')
+    processCmd('cp '+webDir+'index.php hgcalRecHitStudyHEB/.')
     #The input here is from running cmsRun runHGCalRecHitStudy_cfg.py, to which 
     #we usually give ttbar noPU as input 
     #Input: hgcRecHit.root
@@ -382,7 +391,7 @@ if (opt.OBJ == 'RecHits'):
         processCmd('mv hgcalRecHitStudyEE hgcalRecHitStudy/.')
         processCmd('mv hgcalRecHitStudyHEF hgcalRecHitStudy/.')
         processCmd('mv hgcalRecHitStudyHEB hgcalRecHitStudy/.')
-        processCmd('cp -r hgcalRecHitStudy /eos/user/a/apsallid/www/RelVals/' + NewRelease + '/.')
+        processCmd('cp -r hgcalRecHitStudy '+webDir + NewRelease + '/.')
 
 ############################################################################################
 #This is the RecHits part
@@ -391,7 +400,7 @@ if (opt.OBJ == 'Calibrations'):
     if (not os.path.isdir("Calibrations")) :
         processCmd('mkdir -p Calibrations')
     #Prepare for www
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php Calibrations/.')
+    processCmd('cp '+webDir+'index.php Calibrations/.')
 
     #Let's loop through RelVals
     for infi in phase2samples_noPU:
@@ -406,7 +415,7 @@ if (opt.OBJ == 'Calibrations'):
         if (not os.path.isdir(samplename)) :
             processCmd('mkdir -p ' + samplename)
             #Prepare for www
-            processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php ' + samplename + '/.')
+            processCmd('cp '+webDir+'index.php ' + samplename + '/.')
 
         inputpathRef = ""
         if RefRelease != None: inputpathRef = RefRepository +'/' + RefRelease +'/'
@@ -418,7 +427,7 @@ if (opt.OBJ == 'Calibrations'):
             output = processCmd(cmd)
             #mv the output under the main directory
             processCmd('mv ' +samplename+ ' Calibrations/.' )
-    processCmd('cp -r Calibrations /eos/user/a/apsallid/www/RelVals/' + NewRelease + '/.')
+    processCmd('cp -r Calibrations '+webDir + NewRelease + '/.')
 
 
 ############################################################################################
@@ -429,7 +438,7 @@ if (opt.OBJ == 'CaloParticles'):
     if (not os.path.isdir("CaloParticles")) :
         processCmd('mkdir -p CaloParticles')
     #Prepare for www
-    processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php CaloParticles/.')
+    processCmd('cp '+webDir+'index.php CaloParticles/.')
 
     #Let's loop through RelVals
     for infi in phase2samples_noPU:
@@ -444,11 +453,11 @@ if (opt.OBJ == 'CaloParticles'):
         print("="*40)
         if (not os.path.isdir(samplename)) :
             processCmd('mkdir -p ' + samplename )
-            processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php ' + samplename + '/.')
+            processCmd('cp '+webDir+'index.php ' + samplename + '/.')
             for part in particletypes: 
                 processCmd('mkdir -p ' + samplename + '/' +part )
                 #Prepare for www
-                processCmd('cp /eos/user/a/apsallid/www/RelVals/index.php ' + samplename + '/' +part + '/.')
+                processCmd('cp '+webDir+'index.php ' + samplename + '/' +part + '/.')
 
         inputpathRef = ""
         if RefRelease != None: inputpathRef = RefRepository +'/' + RefRelease +'/'
@@ -459,4 +468,4 @@ if (opt.OBJ == 'CaloParticles'):
         else:
             output = processCmd(cmd)
             processCmd('mv ' +samplename+ ' CaloParticles/.' )
-    processCmd('cp -r CaloParticles /eos/user/a/apsallid/www/RelVals/' + NewRelease + '/.')
+    processCmd('cp -r CaloParticles '+webDir + NewRelease + '/.')
