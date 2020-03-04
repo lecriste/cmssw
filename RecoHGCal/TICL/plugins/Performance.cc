@@ -60,6 +60,7 @@
 #include "TLorentzVector.h"
 #include "TH1.h"
 #include <algorithm>
+#include "Math/GenVector/VectorUtil.h"
 
 struct caloparticle {
   int   pdgid_;
@@ -105,6 +106,7 @@ struct trackster {
   float pcaEigVect0_phi_;
   float cpenergy_;
   int   cppdgid_;
+  float baryAxis_cos_;
 };
 
 
@@ -177,13 +179,13 @@ private:
   size_t run, event, lumi, time;
   float weight;  
 
-  int   cp_pdgid;
-  float cp_e;
-  float cp_pt;
-  float cp_eta;
-  float cp_phi;
-  float cp_recable_e;
-  float cp_clusterized_e;
+  int   cp_pdgid[2];
+  float cp_e[2];
+  float cp_pt[2];
+  float cp_eta[2];
+  float cp_phi[2];
+  float cp_recable_e[2];
+  float cp_clusterized_e[2];
 
   int   n_ts;
   int   n_ts_dr0p2;
@@ -194,6 +196,7 @@ private:
   float ts_z;
   float ts_pcaEigVect0_eta;
   float ts_pcaEigVect0_phi;
+  float ts_pcaBaryEigVect0_cos;
 
   /*std::vector<int>   ts_idx;
   std::vector<int>   ts_type;
@@ -225,10 +228,10 @@ private:
   float ts_cpenergy;
   int   ts_cppdgid;*/
 
-  float EBary_cp_eta;
-  float EBary_cp_phi;
-  float EAxis_cp_eta;
-  float EAxis_cp_phi;
+  float EBary_cp_eta[2];
+  float EBary_cp_phi[2];
+  float EAxis_cp_eta[2];
+  float EAxis_cp_phi[2];
 };  
   
   
@@ -270,14 +273,23 @@ Performance::Performance(const edm::ParameterSet& iConfig)
   tree->Branch("lumi"   , &lumi   , "lumi/I"   );
   tree->Branch("weight" , &weight , "weight/F" );
 
-  // calo particle
-  tree->Branch("cp_pdgid"         , &cp_pdgid         , "cp_pdgid/I" );
-  tree->Branch("cp_e"             , &cp_e             , "cp_e/F" );
-  tree->Branch("cp_pt"            , &cp_pt            , "cp_pt/F" );
-  tree->Branch("cp_eta"           , &cp_eta           , "cp_eta/F" );
-  tree->Branch("cp_phi"           , &cp_phi           , "cp_phi/F" );
-  tree->Branch("cp_recable_e"     , &cp_recable_e     , "cp_recable_e/F" );
-  tree->Branch("cp_clusterized_e" , &cp_clusterized_e , "cp_clusterized_e/F" );
+  for (int i=0; i<2; ++i) {
+    std::string cpth = "cp"+std::to_string(i);
+    // calo particle
+    tree->Branch((cpth+"_pdgid").c_str()         , &(cp_pdgid[i])         , (cpth+"_pdgid/I").c_str() );
+    tree->Branch((cpth+"_e").c_str()             , &(cp_e[i])             , (cpth+"_e/F").c_str() );
+    tree->Branch((cpth+"_pt").c_str()            , &(cp_pt[i])            , (cpth+"_pt/F").c_str() );
+    tree->Branch((cpth+"_eta").c_str()           , &(cp_eta[i])           , (cpth+"_eta/F").c_str() );
+    tree->Branch((cpth+"_phi").c_str()           , &(cp_phi[i])           , (cpth+"_phi/F").c_str() );
+    tree->Branch((cpth+"_recable_e").c_str()     , &(cp_recable_e[i])     , (cpth+"_recable_e/F").c_str() );
+    tree->Branch((cpth+"_clusterized_e").c_str() , &(cp_clusterized_e[i]) , (cpth+"_clusterized_e/F").c_str() );
+
+    // trackster
+    tree->Branch(("EBary_"+cpth+"_eta").c_str(), &(EBary_cp_eta[i]));
+    tree->Branch(("EBary_"+cpth+"_phi").c_str(), &(EBary_cp_phi[i]));
+    tree->Branch(("EAxis_"+cpth+"_eta").c_str(), &(EAxis_cp_eta[i]));
+    tree->Branch(("EAxis_"+cpth+"_phi").c_str(), &(EAxis_cp_phi[i]));
+  }
 
   // trackster
   tree->Branch("n_ts"       , &n_ts);
@@ -288,7 +300,12 @@ Performance::Performance(const edm::ParameterSet& iConfig)
   tree->Branch("ts_phi"     , &ts_phi);
   tree->Branch("ts_z"       , &ts_z);
 
-  /*tree->Branch("ts_type"       , &ts_type);
+  tree->Branch("ts_pcaEigVect0_eta", &ts_pcaEigVect0_eta);
+  tree->Branch("ts_pcaEigVect0_phi", &ts_pcaEigVect0_phi);
+  tree->Branch("ts_pcaBaryEigVect0_cos", &ts_pcaBaryEigVect0_cos);
+
+  /*
+  tree->Branch("ts_type"       , &ts_type);
   tree->Branch("ts_energy"     , &ts_energy);
   tree->Branch("ts_eta"        , &ts_eta);
   tree->Branch("ts_phi"        , &ts_phi);
@@ -298,8 +315,8 @@ Performance::Performance(const edm::ParameterSet& iConfig)
   tree->Branch("ts_pcaeigval0" , &ts_pcaeigval0);
   tree->Branch("ts_pcasig0"    , &ts_pcasig0);
   tree->Branch("ts_cpenergy"   , &ts_cpenergy);
-  tree->Branch("ts_cppdgid"    , &ts_cppdgid);*/
-  /*    
+  tree->Branch("ts_cppdgid"    , &ts_cppdgid);
+  */ /*
   tree->Branch("ts_type"       , &ts_type       , "ts_type/I");
   tree->Branch("ts_energy"     , &ts_energy     , "ts_energy/F");
   tree->Branch("ts_eta"        , &ts_eta        , "ts_eta/F");
@@ -316,15 +333,6 @@ Performance::Performance(const edm::ParameterSet& iConfig)
   tree->Branch("ts_cpenergy"   , &ts_cpenergy   , "ts_cpenergy/F");
   tree->Branch("ts_cppdgid"    , &ts_cppdgid    , "ts_cppdgid/I");
   */
-
-  tree->Branch("ts_pcaEigVect0_eta", &ts_pcaEigVect0_eta);;
-  tree->Branch("ts_pcaEigVect0_phi", &ts_pcaEigVect0_phi);;
-
-  tree->Branch("EBary_cp_eta", &EBary_cp_eta);;
-  tree->Branch("EBary_cp_phi", &EBary_cp_phi);;
-  tree->Branch("EAxis_cp_eta", &EAxis_cp_eta);;
-  tree->Branch("EAxis_cp_phi", &EAxis_cp_phi);;
-
 }
 
 
@@ -537,9 +545,9 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
     
      if ( (cp.eventId().event() != 0) || (cp.eventId().bunchCrossing()!=0) ) { continue; }
 
-     std::cout << "CP " << std::distance(cps.begin(), it_cp) << std::endl ;
-     std::cout << "eta = " << cp.eta() << std::endl ;
-     std::cout << "phi = " << cp.phi() << std::endl ;
+     //std::cout << "\nCP " << std::distance(cps.begin(), it_cp) << std::endl ;
+     //std::cout << "eta = " << cp.eta() << std::endl ;
+     //std::cout << "phi = " << cp.phi() << std::endl ;
 
      caloparticle tmpcp_;
      tmpcp_.pdgid_  = cp.pdgId();
@@ -548,19 +556,20 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      tmpcp_.eta_    = cp.eta();
      tmpcp_.phi_    = cp.phi();
 
-     // loop over the merged clusters
-     for (auto it_trkster = mergeTrksters.begin(); it_trkster != mergeTrksters.end(); ++it_trkster) {
-       std::cout << "MT " << std::distance(mergeTrksters.begin(), it_trkster) << std::endl ;
-       std::cout << "E = " << it_trkster->raw_energy << std::endl ;
-       std::cout << "eta = " << it_trkster->barycenter.eta() << std::endl ;
-       std::cout << "phi = " << it_trkster->barycenter.phi() << std::endl ;
-       std::cout << "axis eta = " << it_trkster->eigenvectors[0].eta() << std::endl ;
-       std::cout << "axis phi = " << it_trkster->eigenvectors[0].phi() << std::endl ;
-     }
-
      caloparticles.push_back(tmpcp_);
    } // end of looping over the calo particles
-   
+
+   // loop over the merged clusters
+   /*
+   for (auto it_trkster = mergeTrksters.begin(); it_trkster != mergeTrksters.end(); ++it_trkster) {
+     std::cout << "\n\nMT " << std::distance(mergeTrksters.begin(), it_trkster) << std::endl ;
+     std::cout << "E = " << it_trkster->raw_energy << std::endl ;
+     std::cout << "eta = " << it_trkster->barycenter.eta() << std::endl ;
+     std::cout << "phi = " << it_trkster->barycenter.phi() << std::endl ;
+     std::cout << "axis eta = " << it_trkster->eigenvectors[0].eta() << std::endl ;
+     std::cout << "axis phi = " << it_trkster->eigenvectors[0].phi() << std::endl ;
+   }
+   */
 
    // get the relevant trackster collection
    //   int cp_pdgid_ = 0; if (caloparticles.size()>0) { cp_pdgid_ = caloparticles.at(0).pdgid_; }
@@ -582,6 +591,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
        trkster_idx = std::distance(mergeTrksters.begin(), it_trkster);
      }
    }
+   //std::cout << "\nMost energetic trackster idx: " << trkster_idx << std::endl;
 
    trackster trkster_; 
    if (mergeTrksters.size()>0) {   
@@ -592,6 +602,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      trkster_.z_      = abs(mergeTrksters.at(trkster_idx).barycenter.z());
      trkster_.pcaEigVect0_eta_ = mergeTrksters.at(trkster_idx).eigenvectors[0].eta();
      trkster_.pcaEigVect0_phi_ = mergeTrksters.at(trkster_idx).eigenvectors[0].phi();
+     trkster_.baryAxis_cos_ = ROOT::Math::VectorUtil::CosTheta(mergeTrksters.at(trkster_idx).barycenter, mergeTrksters.at(trkster_idx).eigenvectors[0]);
    }
 
    /*
@@ -697,17 +708,6 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
    }
    */
 
-   // get the first CP in the list and store it
-   if (caloparticles.size()>0) {
-     cp_pdgid         = caloparticles.at(0).pdgid_;
-     cp_e             = caloparticles.at(0).energy_;
-     cp_pt            = caloparticles.at(0).pt_;
-     cp_eta           = caloparticles.at(0).eta_;
-     cp_phi           = caloparticles.at(0).phi_;
-     cp_recable_e     = caloparticles.at(0).recable_energy_;
-     //cp_clusterized_e = clusterized_energy_;
-   }   
-
    if (mergeTrksters.size()>0) {
      n_ts       = mergeTrksters.size();
      n_ts_dr0p2 = n_ts_dr0p2_;
@@ -718,14 +718,27 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      ts_z       = trkster_.z_;
      ts_pcaEigVect0_eta = trkster_.pcaEigVect0_eta_;
      ts_pcaEigVect0_phi = trkster_.pcaEigVect0_phi_;
+     ts_pcaBaryEigVect0_cos = trkster_.baryAxis_cos_;
    }
 
-   if (caloparticles.size()>0 && mergeTrksters.size()>0) {
-     EBary_cp_eta = ts_eta - cp_eta;     
-     EBary_cp_phi = ts_phi - cp_phi;
-     EAxis_cp_eta = ts_pcaEigVect0_eta - cp_eta;
-     EAxis_cp_phi = ts_pcaEigVect0_phi - cp_phi;
-   }
+   // get the first two CPs in the list and store them
+   for (unsigned int i=0; i<2; ++i)
+     if (caloparticles.size() > i) {
+       cp_pdgid[i]     = caloparticles.at(i).pdgid_;
+       cp_e[i]         = caloparticles.at(i).energy_;
+       cp_pt[i]        = caloparticles.at(i).pt_;
+       cp_eta[i]       = caloparticles.at(i).eta_;
+       cp_phi[i]       = caloparticles.at(i).phi_;
+       cp_recable_e[i] = caloparticles.at(i).recable_energy_;
+       //cp_clusterized_e = clusterized_energy_;
+
+       if (mergeTrksters.size() > 0) {
+         EBary_cp_eta[i] = ts_eta - cp_eta[i];
+         EBary_cp_phi[i] = ts_phi - cp_phi[i];
+         EAxis_cp_eta[i] = ts_pcaEigVect0_eta - cp_eta[i];
+         EAxis_cp_phi[i] = ts_pcaEigVect0_phi - cp_phi[i];
+       }
+     }
 
    tree->Fill();
 
