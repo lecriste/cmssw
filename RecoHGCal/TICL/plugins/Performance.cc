@@ -102,6 +102,7 @@ struct trackster {
   float pcasig1_;
   float pcaeigval2_;
   float pcasig2_;
+  float pcasig_[3];
   float pcaEigVect0_eta_;
   float pcaEigVect0_phi_;
   float cpenergy_;
@@ -197,6 +198,7 @@ private:
   float ts_pcaEigVect0_eta;
   float ts_pcaEigVect0_phi;
   float ts_pcaBaryEigVect0_cos;
+  float ts_pcasig[3];
 
   /*std::vector<int>   ts_idx;
   std::vector<int>   ts_type;
@@ -303,6 +305,7 @@ Performance::Performance(const edm::ParameterSet& iConfig)
   tree->Branch("ts_pcaEigVect0_eta", &ts_pcaEigVect0_eta);
   tree->Branch("ts_pcaEigVect0_phi", &ts_pcaEigVect0_phi);
   tree->Branch("ts_pcaBaryEigVect0_cos", &ts_pcaBaryEigVect0_cos);
+  tree->Branch("ts_pcasig", &ts_pcasig, "ts_pcasig[3]/F");
 
   /*
   tree->Branch("ts_type"       , &ts_type);
@@ -603,6 +606,8 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      trkster_.pcaEigVect0_eta_ = mergeTrksters.at(trkster_idx).eigenvectors[0].eta();
      trkster_.pcaEigVect0_phi_ = mergeTrksters.at(trkster_idx).eigenvectors[0].phi();
      trkster_.baryAxis_cos_ = ROOT::Math::VectorUtil::CosTheta(mergeTrksters.at(trkster_idx).barycenter, mergeTrksters.at(trkster_idx).eigenvectors[0]);
+     for (int i=0; i<3; ++i)
+       trkster_.pcasig_[i] = mergeTrksters.at(trkster_idx).sigmasPCA[i];
    }
 
    /*
@@ -719,6 +724,8 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      ts_pcaEigVect0_eta = trkster_.pcaEigVect0_eta_;
      ts_pcaEigVect0_phi = trkster_.pcaEigVect0_phi_;
      ts_pcaBaryEigVect0_cos = trkster_.baryAxis_cos_;
+     //&ts_pcasig[0] = &(trkster_.pcasig_[0]);
+     memcpy(&ts_pcasig, trkster_.pcasig_, sizeof trkster_.pcasig_);
    }
 
    // get the first two CPs in the list and store them
