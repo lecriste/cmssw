@@ -96,6 +96,7 @@ struct trackster {
   float x_;
   float y_;
   float z_;
+  float sig_[3];
   float pcaeigval_[3];
   float pcasig_[3];
   float pcaEigVect0_eta_;
@@ -190,6 +191,7 @@ private:
   float ts_eta;
   float ts_phi;
   float ts_z;
+  float ts_sig[3];
   float ts_pcaeigval[3];
   float ts_pcaEigVect0_eta;
   float ts_pcaEigVect0_phi;
@@ -297,6 +299,7 @@ Performance::Performance(const edm::ParameterSet& iConfig)
   tree->Branch("ts_eta"     , &ts_eta);
   tree->Branch("ts_phi"     , &ts_phi);
   tree->Branch("ts_z"       , &ts_z);
+  tree->Branch("ts_sig"     , &ts_sig, "ts_sig[3]/F");
 
   tree->Branch("ts_pcaeigval", &ts_pcaeigval, "ts_pcaeigval[3]/F");
   tree->Branch("ts_pcaEigVect0_eta", &ts_pcaEigVect0_eta);
@@ -604,6 +607,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      trkster_.pcaEigVect0_phi_ = mergeTrksters.at(trkster_idx).eigenvectors[0].phi();
      trkster_.baryAxis_cos_ = ROOT::Math::VectorUtil::CosTheta(mergeTrksters.at(trkster_idx).barycenter, mergeTrksters.at(trkster_idx).eigenvectors[0]);
      for (int i=0; i<3; ++i) {
+       trkster_.sig_[i] = mergeTrksters.at(trkster_idx).sigmas[i];
        trkster_.pcaeigval_[i] = mergeTrksters.at(trkster_idx).eigenvalues[i];
        trkster_.pcasig_[i] = mergeTrksters.at(trkster_idx).sigmasPCA[i];
      }
@@ -720,6 +724,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      ts_eta     = trkster_.eta_;
      ts_phi     = trkster_.phi_;
      ts_z       = trkster_.z_;
+     memcpy(&ts_sig, trkster_.sig_, sizeof trkster_.sig_);
      memcpy(&ts_pcaeigval, trkster_.pcaeigval_, sizeof trkster_.pcaeigval_);
      ts_pcaEigVect0_eta = trkster_.pcaEigVect0_eta_;
      ts_pcaEigVect0_phi = trkster_.pcaEigVect0_phi_;
