@@ -1,4 +1,5 @@
 import FWCore.ParameterSet.Config as cms
+import sys
 
 caloParticles = cms.PSet(
 	accumulatorType = cms.string('CaloTruthAccumulator'),
@@ -7,7 +8,7 @@ caloParticles = cms.PSet(
 #	createInitialVertexCollection = cms.bool(False),
 #	alwaysAddAncestors = cms.bool(True),
         MinEnergy = cms.double(0.5),
-        MaxPseudoRapidity = cms.double(5.0),
+        MaxPseudoRapidity = cms.double(round(sys.float_info.max, 10)), # https://github.com/cms-sw/cmssw/blob/9d1566ef737a48a38bd3c5b9edcf6ad47c573cb3/FWCore/ParameterSet/src/types.cc#L475
         premixStage1 = cms.bool(False),
 	maximumPreviousBunchCrossing = cms.uint32(0),
 	maximumSubsequentBunchCrossing = cms.uint32(0),

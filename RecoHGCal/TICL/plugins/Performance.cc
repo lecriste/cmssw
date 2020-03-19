@@ -562,6 +562,15 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      caloparticles.push_back(tmpcp_);
    } // end of looping over the calo particles
 
+   // Dummy CaloParticle with a z-parallel direction
+   GlobalVector zVersor( 0, 0, 1 );
+   caloparticle zCP;
+   zCP.pdgid_  = 0;
+   zCP.energy_ = 0;
+   zCP.pt_     = 0;
+   zCP.eta_    = zVersor.eta();
+   zCP.phi_    = zVersor.phi();
+
    // loop over the merged clusters
    /*
    for (auto it_trkster = mergeTrksters.begin(); it_trkster != mergeTrksters.end(); ++it_trkster) {
@@ -733,7 +742,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
    }
 
    // get the first two CPs in the list and store them
-   for (unsigned int i=0; i<2; ++i)
+   for (unsigned int i=0; i<2; ++i) {
      if (caloparticles.size() > i) {
        cp_pdgid[i]     = caloparticles.at(i).pdgid_;
        cp_e[i]         = caloparticles.at(i).energy_;
@@ -742,14 +751,24 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
        cp_phi[i]       = caloparticles.at(i).phi_;
        cp_recable_e[i] = caloparticles.at(i).recable_energy_;
        //cp_clusterized_e = clusterized_energy_;
-
-       if (mergeTrksters.size() > 0) {
-         EBary_cp_eta[i] = ts_eta - cp_eta[i];
-         EBary_cp_phi[i] = ts_phi - cp_phi[i];
-         EAxis_cp_eta[i] = ts_pcaEigVect0_eta - cp_eta[i];
-         EAxis_cp_phi[i] = ts_pcaEigVect0_phi - cp_phi[i];
-       }
+     } else {
+       cp_pdgid[i]     = zCP.pdgid_;
+       cp_e[i]         = zCP.energy_;
+       cp_pt[i]        = zCP.pt_;
+       cp_eta[i]       = zCP.eta_;
+       cp_phi[i]       = zCP.phi_;
+       cp_recable_e[i] = zCP.recable_energy_;
+       //cp_clusterized_e = clusterized_energy_;
+       //
      }
+
+     if (mergeTrksters.size() > 0) {
+       EBary_cp_eta[i] = ts_eta - cp_eta[i];
+       EBary_cp_phi[i] = ts_phi - cp_phi[i];
+       EAxis_cp_eta[i] = ts_pcaEigVect0_eta - cp_eta[i];
+       EAxis_cp_phi[i] = ts_pcaEigVect0_phi - cp_phi[i];
+     }
+   }
 
    tree->Fill();
 
