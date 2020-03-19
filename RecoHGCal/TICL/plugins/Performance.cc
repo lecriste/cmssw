@@ -563,7 +563,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
    } // end of looping over the calo particles
 
    // Dummy CaloParticle with a z-parallel direction
-   GlobalVector zVersor( 0, 0, 1 );
+   math::XYZVector zVersor( 0, 0, 1 );
    caloparticle zCP;
    zCP.pdgid_  = 0;
    zCP.energy_ = 0;
@@ -614,7 +614,10 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      trkster_.z_      = abs(mergeTrksters.at(trkster_idx).barycenter.z());
      trkster_.pcaEigVect0_eta_ = mergeTrksters.at(trkster_idx).eigenvectors[0].eta();
      trkster_.pcaEigVect0_phi_ = mergeTrksters.at(trkster_idx).eigenvectors[0].phi();
-     trkster_.baryAxis_cos_ = ROOT::Math::VectorUtil::CosTheta(mergeTrksters.at(trkster_idx).barycenter, mergeTrksters.at(trkster_idx).eigenvectors[0]);
+     if (cps.size() > 0)
+       trkster_.baryAxis_cos_ = ROOT::Math::VectorUtil::CosTheta(mergeTrksters.at(trkster_idx).barycenter, mergeTrksters.at(trkster_idx).eigenvectors[0]);
+     else
+       trkster_.baryAxis_cos_ = ROOT::Math::VectorUtil::CosTheta(zVersor, mergeTrksters.at(trkster_idx).eigenvectors[0]);
      for (int i=0; i<3; ++i) {
        trkster_.sig_[i] = mergeTrksters.at(trkster_idx).sigmas[i];
        trkster_.pcaeigval_[i] = mergeTrksters.at(trkster_idx).eigenvalues[i];
@@ -760,6 +763,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
        cp_recable_e[i] = zCP.recable_energy_;
        //cp_clusterized_e = clusterized_energy_;
        //
+
      }
 
      if (mergeTrksters.size() > 0) {
