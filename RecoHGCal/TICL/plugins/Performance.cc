@@ -146,8 +146,8 @@ private:
   void findClosestTrkster2CP(caloparticle cps_, std::vector<ticl::Trackster> tracksters,
 			     float &minDrTrksterCP, unsigned int &trkster_idx);   
   std::vector<int> matchRecHit2CPRecHits(DetId detid_, std::vector<DetId> rechitdetid_);
-  //  std::vector<layercluster> getLCEnergyFromCP(ticl::Trackster trkster, int idx2Trkster, float &trksterEnFromCP_, 
-  //					      caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap);
+  std::vector<layercluster> getLCEnergyFromCP(const reco::CaloClusterCollection lcs, int idx2Trkster, float &trksterEnFromCP_,
+					      caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap);
 
   std::shared_ptr<hgcal::RecHitTools> recHitTools;
   //const hgcal::RecHitTools recHitTools;
@@ -431,22 +431,26 @@ std::vector<int> Performance::matchRecHit2CPRecHits(DetId detid_, std::vector<De
 
 
 
-/*
-std::vector<layercluster> Performance::getLCEnergyFromCP(ticl::Trackster trkster, int idx2Trkster, float &trksterEnFromCP_,
-						 caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap) {
+
+std::vector<layercluster> Performance::getLCEnergyFromCP(const reco::CaloClusterCollection lcs, int idx2Trkster, float &trksterEnFromCP_,
+						         caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap) {
 
   // get the layer clusters [LC] of the trackster
-  edm::PtrVector<reco::BasicCluster> lcs = trkster.clusters();
+  //edm::PtrVector<reco::BasicCluster> lcs = trkster.clusters();
   std::vector<layercluster> tmp_lcs; tmp_lcs.reserve(lcs.size());
 
-  for (const auto& it_lc : lcs) {
+  //for (const auto& it_lc : lcs)
+  //for (auto it_lc = lcs.begin(); it_lc != lcs.end(); ++it_lc)
+  for (reco::CaloClusterCollection::const_iterator cc = lcs.begin(); cc != lcs.end(); cc++)
+    {
+    //const reco::CaloCluster& cc = *it_lc;
     
     float lcEnFromCP_ = 0.;
-    int   lcPurity_   = -1;
+    //int   lcPurity_   = -1;
     int   layer_ = -1;
 
     // loop over the RecHits of the LC    
-    const std::vector<std::pair<DetId, float>> &hf = it_lc->hitsAndFractions();    
+    const std::vector<std::pair<DetId, float>> &hf = cc->hitsAndFractions();
     for (unsigned int j = 0; j < hf.size(); j++) {
 
       const DetId detid_ = hf[j].first;
@@ -472,13 +476,13 @@ std::vector<layercluster> Performance::getLCEnergyFromCP(ticl::Trackster trkster
     // store the energy of this rechit in general
    
     layercluster tmp_lc; 
-    tmp_lc.energy_        = it_lc->energy();
-    tmp_lc.eta_           = it_lc->eta();
-    tmp_lc.phi_           = it_lc->phi();
-    tmp_lc.x_             = it_lc->position().x();    
-    tmp_lc.y_             = it_lc->position().y();    
-    tmp_lc.z_             = it_lc->position().z();    
-    tmp_lc.nrechits_      = it_lc->hitsAndFractions().size();
+    tmp_lc.energy_        = cc->energy();
+    tmp_lc.eta_           = cc->eta();
+    tmp_lc.phi_           = cc->phi();
+    tmp_lc.x_             = cc->position().x();
+    tmp_lc.y_             = cc->position().y();
+    tmp_lc.z_             = cc->position().z();
+    tmp_lc.nrechits_      = cc->hitsAndFractions().size();
     tmp_lc.layer_         = layer_;
     tmp_lc.idx2Trackster_ = idx2Trkster;
 
@@ -488,7 +492,7 @@ std::vector<layercluster> Performance::getLCEnergyFromCP(ticl::Trackster trkster
   return tmp_lcs;
 } // end of getLCEnergyFromCP
 
-*/
+
 void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
    using namespace edm;
 
@@ -503,19 +507,19 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 
    edm::Handle<std::vector<ticl::Trackster>> emTrksterHandle;
    iEvent.getByToken(emTrksterToken_, emTrksterHandle);
-   //const std::vector<ticl::Trackster> &emTrksters = *emTrksterHandle;
+   const std::vector<ticl::Trackster> &emTrksters = *emTrksterHandle;
 
    edm::Handle<std::vector<ticl::Trackster>> trkTrksterHandle;
    iEvent.getByToken(trkTrksterToken_, trkTrksterHandle);
-   //const std::vector<ticl::Trackster> &trkTrksters = *trkTrksterHandle;
+   const std::vector<ticl::Trackster> &trkTrksters = *trkTrksterHandle;
 
    edm::Handle<std::vector<ticl::Trackster>> hadTrksterHandle;
    iEvent.getByToken(hadTrksterToken_, hadTrksterHandle);
-   //const std::vector<ticl::Trackster> &hadTrksters = *hadTrksterHandle;
+   const std::vector<ticl::Trackster> &hadTrksters = *hadTrksterHandle;
 
    edm::Handle<std::vector<ticl::Trackster>> mipTrksterHandle;
    iEvent.getByToken(mipTrksterToken_, mipTrksterHandle);
-   //const std::vector<ticl::Trackster> &mipTrksters = *mipTrksterHandle;
+   const std::vector<ticl::Trackster> &mipTrksters = *mipTrksterHandle;
 
    edm::Handle<std::vector<ticl::Trackster>> mergeTrksterHandle;
    iEvent.getByToken(mergeTrksterToken_, mergeTrksterHandle);
@@ -527,7 +531,7 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
 
    edm::Handle<reco::CaloClusterCollection> layerClusterHandle;
    iEvent.getByToken(hgcalLayerClustersToken_, layerClusterHandle);
-   //const reco::CaloClusterCollection &lcs = *layerClusterHandle;
+   const reco::CaloClusterCollection &lcs = *layerClusterHandle;
 
    std::map<DetId, const HGCRecHit*> hitMap;
    fillHitMap(hitMap, *recHitHandleEE, *recHitHandleFH, *recHitHandleBH);
@@ -637,7 +641,6 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      }*/
 
 
-   /*
 
 
    // loop over the caloparticles and then find the closest trackster to it
@@ -647,17 +650,19 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
      std::vector<ticl::Trackster> tracksters = getTracksterCollection(caloparticles.at(icp).pdgid_,emTrksters, mipTrksters, hadTrksters, trkTrksters);
 
      // find the closest trackster 
-     float minDrTrksterCP = 999.;
      unsigned int trkster_idx = 999;
+     /*
+     float minDrTrksterCP = 999.;
      findClosestTrkster2CP(caloparticles.at(icp), tracksters, minDrTrksterCP, trkster_idx);
      if (minDrTrksterCP>maxDrTrackserCP) { continue; } // skip if DR(Trackster,CP)>maxDrTracksterCP
-     
+     */
      // get the en from CP, create LC, etc...
      float trksterEnFromCP_ = 0.;
      //std::vector<layercluster> lcs = getLCEnergyFromCP(tracksters.at(trkster_idx), trkster_idx, trksterEnFromCP_, caloparticles.at(icp), hitMap); 
+     getLCEnergyFromCP(lcs, trkster_idx, trksterEnFromCP_, caloparticles.at(icp), hitMap);
      //if ( (trksterEnFromCP_/caloparticles.at(icp).energy_) < trackstersEnFromCP) { continue; }
      //     if ( tracksters.at(trkster_idx).raw_energy<(0.5*(caloparticles.at(icp).energy_)) ) { continue; }
-     
+     /*
      trackster trkster_; 
      trkster_.idx_        = trkster_idx;
      trkster_.type_       = -1;
@@ -674,10 +679,11 @@ void Performance::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetu
    
      trksterCollection.push_back(trkster_);
      //lcCollection.insert(lcCollection.end(),lcs.begin(),lcs.end());
-    
+     */
    } // end of looping over the caloparticles
 
    // fill the tree
+   /*
    for (unsigned int ilc=0; ilc<lcCollection.size(); ++ilc) {
      lc_energy.push_back(lcCollection.at(ilc).energy_);
      lc_eta.push_back(lcCollection.at(ilc).eta_);
