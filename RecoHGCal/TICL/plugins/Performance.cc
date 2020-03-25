@@ -146,6 +146,10 @@ private:
   void findClosestTrkster2CP(caloparticle cps_, std::vector<ticl::Trackster> tracksters,
 			     float &minDrTrksterCP, unsigned int &trkster_idx);   
   std::vector<int> matchRecHit2CPRecHits(DetId detid_, std::vector<DetId> rechitdetid_);
+  std::vector<HGCRecHit> getRecHitsFromCP(const reco::CaloClusterCollection::const_iterator cc,
+                                          const caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap,
+                                          bool getLayer, int layer_,
+                                          bool getTrksterEn, float trksterEnFromCP_);
   std::vector<layercluster> getLCEnergyFromCP(const reco::CaloClusterCollection lcs, int idx2Trkster, float &trksterEnFromCP_,
 					      caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap);
 
@@ -430,7 +434,33 @@ std::vector<int> Performance::matchRecHit2CPRecHits(DetId detid_, std::vector<De
 } // end of matchRecHit2CPRecHits
 
 
+std::vector<HGCRecHit> Performance::getRecHitsFromCP(const reco::CaloClusterCollection::const_iterator cc,
+                                                     const caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap,
+                                                     bool getLayer=false, int layer_=-1,
+                                                     bool getTrksterEn=false, float trksterEnFromCP_=0) {
+  std::vector<HGCRecHit> recHitsFromCP;
+  // loop over the RecHits of the LC
+  const std::vector<std::pair<DetId, float>> &hf = cc->hitsAndFractions();
+  for (unsigned int j = 0; j < hf.size(); j++) {
 
+    const DetId detid_ = hf[j].first;
+    if (getLayer) layer_ = recHitTools->getLayerWithOffset(detid_); // this will be always the layer of the layer of the last recHit in hitsAndFractions; is it fine?
+    std::map<DetId,const HGCRecHit *>::const_iterator itcheck = hitMap.find(detid_);
+
+    if (itcheck != hitMap.end()) {
+      const HGCRecHit *hit = itcheck->second;
+
+      bool matchRecHit2CP = false;
+      if (std::find(cp.rechitdetid_.begin(), cp.rechitdetid_.end(), detid_) != cp.rechitdetid_.end()) { matchRecHit2CP = true; }
+
+      if (matchRecHit2CP) {
+        if (getTrksterEn) trksterEnFromCP_ += hit->energy()*(hf[j].second);
+        recHitsFromCP.push_back(*hit);
+      }
+    } // end of itcheck != hitMap.end() check
+  } // end of looping over the rechits of the LC
+  return recHitsFromCP;
+}
 
 std::vector<layercluster> Performance::getLCEnergyFromCP(const reco::CaloClusterCollection lcs, int idx2Trkster, float &trksterEnFromCP_,
 						         caloparticle cp, std::map<DetId, const HGCRecHit*>& hitMap) {
@@ -439,37 +469,19 @@ std::vector<layercluster> Performance::getLCEnergyFromCP(const reco::CaloCluster
   //edm::PtrVector<reco::BasicCluster> lcs = trkster.clusters();
   std::vector<layercluster> tmp_lcs; tmp_lcs.reserve(lcs.size());
 
+  std::vector<HGCRecHit> CP_recHits;
   //for (const auto& it_lc : lcs)
   //for (auto it_lc = lcs.begin(); it_lc != lcs.end(); ++it_lc)
   for (reco::CaloClusterCollection::const_iterator cc = lcs.begin(); cc != lcs.end(); cc++)
     {
     //const reco::CaloCluster& cc = *it_lc;
     
-    float lcEnFromCP_ = 0.;
     //int   lcPurity_   = -1;
     int   layer_ = -1;
-
-    // loop over the RecHits of the LC    
-    const std::vector<std::pair<DetId, float>> &hf = cc->hitsAndFractions();
-    for (unsigned int j = 0; j < hf.size(); j++) {
-
-      const DetId detid_ = hf[j].first;
-      layer_ = recHitTools->getLayerWithOffset(detid_);
-      std::map<DetId,const HGCRecHit *>::const_iterator itcheck = hitMap.find(detid_);
-
-      if (itcheck != hitMap.end()) {
-	const HGCRecHit *hit = itcheck->second;
-	
-	bool matchRecHit2CP = false; 
-	if (std::find(cp.rechitdetid_.begin(), cp.rechitdetid_.end(), detid_) != cp.rechitdetid_.end()) { matchRecHit2CP = true; } 
-	
-	if (matchRecHit2CP) {
-	  lcEnFromCP_      += hit->energy()*(hf[j].second);
-	  trksterEnFromCP_ += hit->energy()*(hf[j].second);
-	}
-      } // end of itcheck != hitMap.end() check
-    } // end of looping over the rechits of the LC
-    
+    std::vector<HGCRecHit> CC_recHits = getRecHitsFromCP(cc, cp, hitMap,
+                                  true, layer_,
+                                  true, trksterEnFromCP_);
+    CP_recHits.insert(CP_recHits.end(), CC_recHits.begin(), CC_recHits.end());
 
     // is this hit matched to a cp -> store the energy
     // decide the type of the lc after all rechits
