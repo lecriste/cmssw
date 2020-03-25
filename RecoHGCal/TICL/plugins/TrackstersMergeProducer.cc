@@ -39,6 +39,9 @@ private:
   void printTrackstersDebug(const std::vector<Trackster> &, const char *label) const;
   void dumpTrackster(const Trackster &) const;
 
+  const edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsEEToken_;
+  const edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsFHToken_;
+  const edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsBHToken_;
   const edm::EDGetTokenT<std::vector<Trackster>> trackstersem_token_;
   const edm::EDGetTokenT<std::vector<Trackster>> tracksterstrk_token_;
   const edm::EDGetTokenT<std::vector<Trackster>> trackstershad_token_;
@@ -68,8 +71,11 @@ private:
   static constexpr int eidNFeatures_ = 3;
 };
 
-TrackstersMergeProducer::TrackstersMergeProducer(const edm::ParameterSet &ps, const CacheBase *cache)
-    : trackstersem_token_(consumes<std::vector<Trackster>>(ps.getParameter<edm::InputTag>("trackstersem"))),
+TrackstersMergeProducer::TrackstersMergeProducer(const edm::ParameterSet &ps, const CacheBase *cache) :
+      hgcalRecHitsEEToken_(consumes<HGCRecHitCollection>(ps.getParameter<edm::InputTag>("hgcalRecHitsEE"))),
+      hgcalRecHitsFHToken_(consumes<HGCRecHitCollection>(ps.getParameter<edm::InputTag>("hgcalRecHitsFH"))),
+      hgcalRecHitsBHToken_(consumes<HGCRecHitCollection>(ps.getParameter<edm::InputTag>("hgcalRecHitsBH"))),
+      trackstersem_token_(consumes<std::vector<Trackster>>(ps.getParameter<edm::InputTag>("trackstersem"))),
       tracksterstrk_token_(consumes<std::vector<Trackster>>(ps.getParameter<edm::InputTag>("tracksterstrk"))),
       trackstershad_token_(consumes<std::vector<Trackster>>(ps.getParameter<edm::InputTag>("trackstershad"))),
       seedingTrk_token_(consumes<std::vector<TICLSeedingRegion>>(ps.getParameter<edm::InputTag>("seedingTrk"))),
@@ -335,7 +341,8 @@ void TrackstersMergeProducer::produce(edm::Event &evt, const edm::EventSetup &es
     tracksterHAD_idx++;
   }
 
-  assignPCAtoTracksters(*result, layerClusters, rhtools_.getPositionLayer(rhtools_.lastLayerEE()).z());
+  assignPCAtoTracksters(*result, layerClusters, rhtools_.getPositionLayer(rhtools_.lastLayerEE()).z(),
+                        0, &hgcalRecHitsEEToken_, &hgcalRecHitsFHToken_, &hgcalRecHitsBHToken_);
   energyRegressionAndID(layerClusters, *result);
 
   printTrackstersDebug(*result, "TrackstersMergeProducer");
@@ -535,6 +542,9 @@ void TrackstersMergeProducer::printTrackstersDebug(const std::vector<Trackster> 
 
 void TrackstersMergeProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
+  desc.add<edm::InputTag>("hgcalRecHitsEE", edm::InputTag("hgcalRecHitsEE"));
+  desc.add<edm::InputTag>("hgcalRecHitsFH", edm::InputTag("hgcalRecHitsFH"));
+  desc.add<edm::InputTag>("hgcalRecHitsBH", edm::InputTag("hgcalRecHitsBH"));
   desc.add<edm::InputTag>("trackstersem", edm::InputTag("trackstersEM"));
   desc.add<edm::InputTag>("tracksterstrk", edm::InputTag("trackstersTrk"));
   desc.add<edm::InputTag>("trackstershad", edm::InputTag("trackstersHAD"));

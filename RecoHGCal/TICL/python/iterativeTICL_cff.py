@@ -13,7 +13,11 @@ from RecoHGCal.TICL.multiClustersFromTrackstersProducer_cfi import multiClusters
 
 ticlLayerTileTask = cms.Task(ticlLayerTileProducer)
 
-trackstersMerge = _trackstersMergeProducer.clone()
+trackstersMerge = _trackstersMergeProducer.clone(
+    hgcalRecHitsEE = cms.InputTag("HGCalRecHit", "HGCEERecHits"),
+    hgcalRecHitsFH = cms.InputTag("HGCalRecHit", "HGCHEFRecHits"),
+    hgcalRecHitsBH = cms.InputTag("HGCalRecHit", "HGCHEBRecHits"),
+)
 multiClustersFromTrackstersMerge = _multiClustersFromTrackstersProducer.clone(
     Tracksters = "trackstersMerge"
 )

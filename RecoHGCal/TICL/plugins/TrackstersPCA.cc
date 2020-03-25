@@ -10,6 +10,10 @@
 void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
                                  const std::vector<reco::CaloCluster> &layerClusters,
                                  double z_limit_em,
+                                 const edm::Event* iEvent,
+                                 const edm::EDGetTokenT<HGCRecHitCollection>* hgcalRecHitsEEToken_,
+                                 const edm::EDGetTokenT<HGCRecHitCollection>* hgcalRecHitsFHToken_,
+                                 const edm::EDGetTokenT<HGCRecHitCollection>* hgcalRecHitsBHToken_,
                                  bool energyWeight) {
   LogDebug("TrackstersPCA_Eigen") << "------- Eigen -------" << std::endl;
 
@@ -30,6 +34,20 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
     trackster.raw_em_energy = 0.;
     trackster.raw_pt = 0.;
     trackster.raw_em_pt = 0.;
+
+    std::map<DetId, const HGCRecHit*> hitMap;
+    if (iEvent) {
+      edm::Handle<HGCRecHitCollection> recHitHandleEE;
+      iEvent->getByToken(*hgcalRecHitsEEToken_, recHitHandleEE);
+
+      edm::Handle<HGCRecHitCollection> recHitHandleFH;
+      iEvent->getByToken(*hgcalRecHitsFHToken_, recHitHandleFH);
+
+      edm::Handle<HGCRecHitCollection> recHitHandleBH;
+      iEvent->getByToken(*hgcalRecHitsBHToken_, recHitHandleBH);
+
+      ticl::fillHitMap(hitMap, *recHitHandleEE, *recHitHandleFH, *recHitHandleBH);
+    }
 
     size_t N = trackster.vertices.size();
     float weight = 1.f / N;
@@ -140,5 +158,23 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
     LogDebug("TrackstersPCA") << "SigmasEigen in PCA space: " << sigmasEigen[2] << ", " << sigmasEigen[1] << ", "
                               << sigmasEigen[0] << std::endl;
     LogDebug("TrackstersPCA") << "covM:     \n" << covM << std::endl;
+  }
+}
+
+void ticl::fillHitMap(std::map<DetId, const HGCRecHit*>& hitMap,
+                                const HGCRecHitCollection& rechitsEE,
+                                const HGCRecHitCollection& rechitsFH,
+                                const HGCRecHitCollection& rechitsBH) {
+  hitMap.clear();
+  for (const auto& hit : rechitsEE) {
+    hitMap.emplace(hit.detid(), &hit);
+  }
+
+  for (const auto& hit : rechitsFH) {
+    hitMap.emplace(hit.detid(), &hit);
+  }
+
+  for (const auto& hit : rechitsBH) {
+    hitMap.emplace(hit.detid(), &hit);
   }
 }
