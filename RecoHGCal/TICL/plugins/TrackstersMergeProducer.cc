@@ -342,7 +342,7 @@ void TrackstersMergeProducer::produce(edm::Event &evt, const edm::EventSetup &es
   }
 
   assignPCAtoTracksters(*result, layerClusters, rhtools_.getPositionLayer(rhtools_.lastLayerEE()).z(),
-                        0, &hgcalRecHitsEEToken_, &hgcalRecHitsFHToken_, &hgcalRecHitsBHToken_);
+                        &evt, &hgcalRecHitsEEToken_, &hgcalRecHitsFHToken_, &hgcalRecHitsBHToken_, &rhtools_);
   energyRegressionAndID(layerClusters, *result);
 
   printTrackstersDebug(*result, "TrackstersMergeProducer");
