@@ -57,7 +57,7 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
     trackster.raw_pt = 0.;
     trackster.raw_em_pt = 0.;
 
-    std::vector<std::pair<DetId,HGCRecHit>> tksRecHits;
+    std::vector<std::pair<std::pair<DetId,HGCRecHit>,uint>> tksRecHits;
     if (iEvent) {
       tksRecHits = ticl::getRecHitsFromTrackster(trackster, layerClusters, hitMap);
     }
@@ -71,17 +71,17 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
     Eigen::Matrix3d covM = Eigen::Matrix3d::Zero();
 
     for (size_t i = 0; i < N; ++i) {
-      auto fraction = iEvent ? 1.f : 1.f / trackster.vertex_multiplicity[i];
-      float energy = iEvent ? tksRecHits[i].second.energy() : layerClusters[trackster.vertices[i]].energy();
+      auto fraction = iEvent ? 1.f / tksRecHits[i].second : 1.f / trackster.vertex_multiplicity[i];
+      float energy = iEvent ? tksRecHits[i].first.second.energy() : layerClusters[trackster.vertices[i]].energy();
       trackster.raw_energy += energy * fraction;
-      iEvent ? fillPoint_RH(tksRecHits[i].first) : fillPoint(layerClusters[trackster.vertices[i]]);
+      iEvent ? fillPoint_RH(tksRecHits[i].first.first) : fillPoint(layerClusters[trackster.vertices[i]]);
       if (std::abs(point[2]) <= z_limit_em)
         trackster.raw_em_energy += energy * fraction;
 
       // Compute the weighted barycenter.
       if (energyWeight)
         weight = energy * fraction;
-      iEvent ? fillPoint_RH(tksRecHits[i].first, weight) : fillPoint(layerClusters[trackster.vertices[i]], weight);
+      iEvent ? fillPoint_RH(tksRecHits[i].first.first, weight) : fillPoint(layerClusters[trackster.vertices[i]], weight);
       for (size_t j = 0; j < 3; ++j)
         barycenter[j] += point[j];
     }
@@ -92,10 +92,11 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
     // to compute the correct normalization.
     // The barycenter has to be known.
     for (size_t i = 0; i < N; ++i) {
-      iEvent ? fillPoint_RH(tksRecHits[i].first) : fillPoint(layerClusters[trackster.vertices[i]]);
+      iEvent ? fillPoint_RH(tksRecHits[i].first.first) : fillPoint(layerClusters[trackster.vertices[i]]);
+      std::cout << "vertex_multiplicity: " << tksRecHits[i].second << std::endl;
       if (energyWeight && trackster.raw_energy) {
-        float energy = iEvent ? tksRecHits[i].second.energy() : layerClusters[trackster.vertices[i]].energy();
-        weight = iEvent ? energy / trackster.raw_energy :
+        float energy = iEvent ? tksRecHits[i].first.second.energy() : layerClusters[trackster.vertices[i]].energy();
+        weight = iEvent ? (energy / tksRecHits[i].second) / trackster.raw_energy :
             (energy / trackster.vertex_multiplicity[i]) / trackster.raw_energy;
       }
       weights2_sum += weight * weight;
@@ -121,12 +122,12 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
 
     // Compute the spread in the both spaces.
     for (size_t i = 0; i < N; ++i) {
-      iEvent ? fillPoint_RH(tksRecHits[i].first) : fillPoint(layerClusters[trackster.vertices[i]]);
+      iEvent ? fillPoint_RH(tksRecHits[i].first.first) : fillPoint(layerClusters[trackster.vertices[i]]);
       sigmas += weight * (point - barycenter).cwiseAbs2();
       Eigen::Vector3d point_transformed = eigenvectors_fromEigen * (point - barycenter);
       if (energyWeight && trackster.raw_energy) {
-        float energy = iEvent ? tksRecHits[i].second.energy() : layerClusters[trackster.vertices[i]].energy();
-        weight = iEvent ? energy / trackster.raw_energy :
+        float energy = iEvent ? tksRecHits[i].first.second.energy() : layerClusters[trackster.vertices[i]].energy();
+        weight = iEvent ? (energy / tksRecHits[i].second ) / trackster.raw_energy :
             (energy / trackster.vertex_multiplicity[i]) / trackster.raw_energy;
       }
       sigmasEigen += weight * (point_transformed.cwiseAbs2());
@@ -198,9 +199,9 @@ void ticl::fillHitMap(std::map<DetId, const HGCRecHit*>& hitMap,
   }
 }
 
-std::vector<std::pair<DetId,HGCRecHit>> ticl::getRecHitsFromTrackster(const Trackster tks, const std::vector<reco::CaloCluster> &layerClusters,
-                                                                      std::map<DetId, const HGCRecHit*>& hitMap) {
-  std::vector<std::pair<DetId,HGCRecHit>> recHitsFromTks;
+std::vector<std::pair<std::pair<DetId,HGCRecHit>,uint>> ticl::getRecHitsFromTrackster(const Trackster tks, const std::vector<reco::CaloCluster> &layerClusters,
+                                                                                      std::map<DetId, const HGCRecHit*>& hitMap) {
+  std::vector<std::pair<std::pair<DetId,HGCRecHit>,uint>> recHitsFromTks;
   // loop over the CaloCLusters of the Tks
   size_t N = tks.vertices.size();
   for (size_t i = 0; i < N; ++i) {
@@ -214,7 +215,7 @@ std::vector<std::pair<DetId,HGCRecHit>> ticl::getRecHitsFromTrackster(const Trac
       std::map<DetId,const HGCRecHit *>::const_iterator itcheck = hitMap.find(detid_);
 
       if (itcheck != hitMap.end()) {
-        recHitsFromTks.push_back(std::make_pair(detid_,*itcheck->second));
+        recHitsFromTks.push_back(std::make_pair(std::make_pair(detid_,*itcheck->second),tks.vertex_multiplicity[i]));
       }
     } // end of loop over the RecHits of the CaloCluster
   } // end of looping over the rechits of the LC

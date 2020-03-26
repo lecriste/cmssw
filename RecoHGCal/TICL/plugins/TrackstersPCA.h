@@ -26,8 +26,8 @@ namespace ticl {
                   const HGCRecHitCollection&,
                   const HGCRecHitCollection&);
 
-  std::vector<std::pair<DetId,HGCRecHit>> getRecHitsFromTrackster(const Trackster tks, const std::vector<reco::CaloCluster> &layerClusters,
-                                                                  std::map<DetId, const HGCRecHit*>& hitMap);
+  std::vector<std::pair<std::pair<DetId,HGCRecHit>,uint>> getRecHitsFromTrackster(const Trackster tks, const std::vector<reco::CaloCluster> &layerClusters,
+                                                                                  std::map<DetId, const HGCRecHit*>& hitMap);
 
 }
 #endif
