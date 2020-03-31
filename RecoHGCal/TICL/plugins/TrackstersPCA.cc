@@ -17,7 +17,6 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
                                  const hgcal::RecHitTools* rhtools_,
                                  bool energyWeight) {
   LogDebug("TrackstersPCA_Eigen") << "------- Eigen -------" << std::endl;
-
   std::map<DetId, const HGCRecHit*> hitMap;
   if (iEvent) {
     edm::Handle<HGCRecHitCollection> recHitHandleEE;
@@ -93,7 +92,6 @@ void ticl::assignPCAtoTracksters(std::vector<Trackster> &tracksters,
     // The barycenter has to be known.
     for (size_t i = 0; i < N; ++i) {
       iEvent ? fillPoint_RH(tksRecHits[i].first.first) : fillPoint(layerClusters[trackster.vertices[i]]);
-      std::cout << "vertex_multiplicity: " << tksRecHits[i].second << std::endl;
       if (energyWeight && trackster.raw_energy) {
         float energy = iEvent ? tksRecHits[i].first.second.energy() : layerClusters[trackster.vertices[i]].energy();
         weight = iEvent ? (energy / tksRecHits[i].second) / trackster.raw_energy :
@@ -205,7 +203,6 @@ std::vector<std::pair<std::pair<DetId,HGCRecHit>,uint>> ticl::getRecHitsFromTrac
   // loop over the CaloCLusters of the Tks
   size_t N = tks.vertices.size();
   for (size_t i = 0; i < N; ++i) {
-    //std::cout << "vertex_multiplicity: " << tks.vertex_multiplicity[i] << std::endl;
     auto cc = layerClusters[tks.vertices[i]];
     const std::vector<std::pair<DetId, float>> &hf = cc.hitsAndFractions();
     // loop over the RecHits of the CaloCluster
