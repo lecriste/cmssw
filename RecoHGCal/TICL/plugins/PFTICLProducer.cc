@@ -62,7 +62,6 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
   edm::Handle<edm::View<TICLCandidate>> ticl_cand_h;
   evt.getByToken(ticl_candidates_, ticl_cand_h);
   const auto ticl_candidates = *ticl_cand_h;
-
   edm::Handle<edm::ValueMap<float>> trackTimeH, trackTimeErrH, trackTimeQualH;
   evt.getByToken(srcTrackTime_, trackTimeH);
   evt.getByToken(srcTrackTimeError_, trackTimeErrH);
@@ -72,6 +71,7 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
 
   auto candidates = std::make_unique<reco::PFCandidateCollection>();
 
+  std::cout << "ticl_candidates size " << ticl_candidates.size() << std::endl ;
   for (const auto& ticl_cand : ticl_candidates) {
     const auto abs_pdg_id = std::abs(ticl_cand.pdgId());
     const auto charge = ticl_cand.charge();
@@ -112,14 +112,19 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
     auto time = ticl_cand.time();
     auto timeE = ticl_cand.timeError();
     // Compute weighted average between HGCAL and MTD timing if available
+    std::cout << "candidate.charge() " << candidate.charge() << std::endl ;
     if (candidate.charge()) {
+      std::cout << "\ntrackTimeQualH= " << (*trackTimeQualH)[candidate.trackRef()] << ", timingQualityThreshold_= " << timingQualityThreshold_ << std::endl;
       const bool assocQuality = (*trackTimeQualH)[candidate.trackRef()] > timingQualityThreshold_;
       if (assocQuality) {
+        const auto timeHGC = time;
+        const auto timeEHGC = timeE;
         const auto timeMTD = (*trackTimeH)[candidate.trackRef()];
         const auto timeEMTD = (*trackTimeErrH)[candidate.trackRef()];
+        std::cout <<"\nBefore average: timeHGC= " << timeHGC << ", timeEHGC= " << timeEHGC << ", timeMTD= " << timeMTD << ", timeEMTD= " << timeEMTD << std::endl;
 
-        timeE = 1 / (pow(timeE,-2) + pow(timeEMTD,-2));
-        time = (time/pow(timeE,2) + timeMTD/pow(timeEMTD,2)) * timeE;
+        timeE = 1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2));
+        time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * timeE;
       }
     }
     candidate.setTime(time, timeE);
