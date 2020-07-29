@@ -112,18 +112,15 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
     auto time = ticl_cand.time();
     auto timeE = ticl_cand.timeError();
     // Compute weighted average between HGCAL and MTD timing if available
-    std::cout << "candidate.charge() " << candidate.charge() << std::endl ;
     if (candidate.charge()) {
-      std::cout << "\ntrackTimeQualH= " << (*trackTimeQualH)[candidate.trackRef()] << ", timingQualityThreshold_= " << timingQualityThreshold_ << std::endl;
       const bool assocQuality = (*trackTimeQualH)[candidate.trackRef()] > timingQualityThreshold_;
       if (assocQuality) {
         const auto timeHGC = time;
         const auto timeEHGC = timeE;
         const auto timeMTD = (*trackTimeH)[candidate.trackRef()];
         const auto timeEMTD = (*trackTimeErrH)[candidate.trackRef()];
-        std::cout <<"\nBefore average: timeHGC= " << timeHGC << ", timeEHGC= " << timeEHGC << ", timeMTD= " << timeMTD << ", timeEMTD= " << timeEMTD << std::endl;
 
-        timeE = 1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2));
+        timeE = sqrt(1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2)));
         time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * timeE;
       }
     }
