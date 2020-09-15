@@ -71,7 +71,6 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
 
   auto candidates = std::make_unique<reco::PFCandidateCollection>();
 
-  std::cout << "ticl_candidates size " << ticl_candidates.size() << std::endl ;
   for (const auto& ticl_cand : ticl_candidates) {
     const auto abs_pdg_id = std::abs(ticl_cand.pdgId());
     const auto charge = ticl_cand.charge();
@@ -121,7 +120,7 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
         const auto timeEMTD = (*trackTimeErrH)[candidate.trackRef()];
 
         timeE = sqrt(1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2)));
-        time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * timeE;
+        time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * pow(timeE,2);
       }
     }
     candidate.setTime(time, timeE);
