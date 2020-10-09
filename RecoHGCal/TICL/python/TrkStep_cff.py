@@ -9,8 +9,10 @@ from RecoHGCal.TICL.multiClustersFromTrackstersProducer_cfi import multiClusters
 # CLUSTER FILTERING/MASKING
 
 filteredLayerClustersTrk = _filteredLayerClustersProducer.clone(
-  clusterFilter = "ClusterFilterByAlgo",
+  clusterFilter = "ClusterFilterByAlgoAndSize",
+  min_cluster_size = 3, # inclusive
   algo_number = 8,
+  LayerClustersInputMask = 'ticlTrackstersEM',
   iteration_label = "Trk"
 )
 
@@ -19,13 +21,15 @@ filteredLayerClustersTrk = _filteredLayerClustersProducer.clone(
 ticlTrackstersTrk = _trackstersProducer.clone(
   filtered_mask = cms.InputTag("filteredLayerClustersTrk", "Trk"),
   seeding_regions = "ticlSeedingTrk",
+  original_mask = 'ticlTrackstersEM',
   filter_on_categories = [2, 4], # filter muons and charged hadrons
   pid_threshold = 0.0,
   missing_layers = 0,
   min_clusters_per_ntuplet = 10,
-  min_cos_theta = 0.94, # ~20 degrees
-  min_cos_pointing = 0.9, # ~ 25 degrees
-#  min_cos_pointing = 0.06, # ~ 3.43 degrees
+#  min_cos_theta = 0.978, # same as em
+#  min_cos_pointing = 0.9, # same as em
+  min_cos_theta = 0.866, # ~30 degrees
+  min_cos_pointing = 0.798, # ~ 37 degrees
   max_delta_time = -1.,
   algo_verbosity = 2,
   oneTracksterPerTrackSeed = True,
@@ -43,4 +47,5 @@ ticlTrkStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersTrk
     ,ticlTrackstersTrk
     ,ticlMultiClustersFromTrackstersTrk)
+
 

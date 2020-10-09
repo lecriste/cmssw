@@ -8,10 +8,11 @@ from RecoHGCal.TICL.multiClustersFromTrackstersProducer_cfi import multiClusters
 # CLUSTER FILTERING/MASKING
 
 filteredLayerClustersEM = _filteredLayerClustersProducer.clone(
-    clusterFilter = "ClusterFilterByAlgoAndSize",
-    min_cluster_size = 2, # inclusive
+    clusterFilter = "ClusterFilterByAlgoAndSizeAndLayerRange",
+    min_cluster_size = 3, # inclusive
+    max_layerId = 30, # inclusive
     algo_number = 8,
-    LayerClustersInputMask = 'ticlTrackstersTrk',
+    LayerClustersInputMask = 'ticlTrackstersTrkEM',
     iteration_label = "EM"
 )
 
@@ -19,10 +20,12 @@ filteredLayerClustersEM = _filteredLayerClustersProducer.clone(
 
 ticlTrackstersEM = _trackstersProducer.clone(
     filtered_mask = cms.InputTag("filteredLayerClustersEM", "EM"),
-    original_mask = 'ticlTrackstersTrk',
+    original_mask = 'ticlTrackstersTrkEM',
     seeding_regions = "ticlSeedingGlobal",
     filter_on_categories = [0, 1],
-    pid_threshold = 0.8,
+    pid_threshold = 0.5,
+    energy_em_over_total_threshold = 0.85,
+    shower_start_max_layer = 7, #inclusive
     max_out_in_hops = 4,
     missing_layers = 0,
     min_clusters_per_ntuplet = 10,
