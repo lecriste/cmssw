@@ -35,6 +35,7 @@ postProcessorHGCALmulticlusters = DQMEDHarvester('DQMGenericClient',
 subDirs = cms.untracked.vstring(
   'HGCAL/HGCalValidator/hgcalMultiClusters/',
   'HGCAL/HGCalValidator/ticlMultiClustersFromTrackstersDummy/',
+  'HGCAL/HGCalValidator/ticlMultiClustersFromTrackstersTrkEM/',
   'HGCAL/HGCalValidator/ticlMultiClustersFromTrackstersTrk/',
   'HGCAL/HGCalValidator/ticlMultiClustersFromTrackstersEM/',
   'HGCAL/HGCalValidator/ticlMultiClustersFromTrackstersHAD/',
