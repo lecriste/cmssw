@@ -28,6 +28,7 @@ PatternRecognitionbyCA<TILES>::PatternRecognitionbyCA(const edm::ParameterSet &c
       min_cos_pointing_(conf.getParameter<double>("min_cos_pointing")),
       etaLimitIncreaseWindow_(conf.getParameter<double>("etaLimitIncreaseWindow")),
       missing_layers_(conf.getParameter<int>("missing_layers")),
+      shower_start_max_layer_(conf.getParameter<int>("shower_start_max_layer")),
       min_clusters_per_ntuplet_(conf.getParameter<int>("min_clusters_per_ntuplet")),
       max_delta_time_(conf.getParameter<double>("max_delta_time")),
       eidInputName_(conf.getParameter<std::string>("eid_input_name")),
@@ -139,37 +140,45 @@ void PatternRecognitionbyCA<TILES>::makeTracksters(
                                        << input.layerClusters[outerCluster].z() << " " << tracksterId << std::endl;
       }
     }
+    unsigned showerMinLayerId = 99999;
     for (auto const i : effective_cluster_idx) {
-      layer_cluster_usage[i]++;
-      if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Basic)
-        LogDebug("HGCPatternRecoByCA") << "LayerID: " << i << " count: " << (int)layer_cluster_usage[i] << std::endl;
+      auto const& haf = input.layerClusters[i].hitsAndFractions();
+      showerMinLayerId = std::min(rhtools_.getLayerWithOffset(haf[0].first),showerMinLayerId);
     }
-    // Put back indices, in the form of a Trackster, into the results vector
-    Trackster tmp;
-    tmp.vertices().reserve(effective_cluster_idx.size());
-    tmp.vertex_multiplicity().resize(effective_cluster_idx.size(), 0);
-    //regions and seedIndices can have different size
-    //if a seeding region does not lead to any trackster
-    tmp.setSeed(input.regions[0].collectionID, seedIndices[tracksterId]);
-    if (isRegionalIter) {
-      seedToTracksterAssociation[tmp.seedIndex()].push_back(tracksterId);
-    }
-    tmp.setOutInHopsPerformed(outInHopsV[tracksterId]);
 
-    std::pair<float, float> timeTrackster(-99., -1.);
-    hgcalsimclustertime::ComputeClusterTime timeEstimator;
-    timeTrackster = timeEstimator.fixSizeHighestDensity(times, timeErrors);
-    tmp.setTimeAndError(timeTrackster.first, timeTrackster.second);
-    std::copy(std::begin(effective_cluster_idx), std::end(effective_cluster_idx), std::back_inserter(tmp.vertices()));
-    // Propagate the correct graph connections
-    tmp.edges().reserve(ntuplet.size());
-    for (auto const & t : ntuplet) {
-      std::array<unsigned int, 2> edge = {{(unsigned int) doublets[t].innerClusterId(),
-                                          (unsigned int) doublets[t].outerClusterId()}};
-      tmp.edges().push_back(edge);
+    if(showerMinLayerId <= shower_start_max_layer_){
+      for (auto const i : effective_cluster_idx) {
+        layer_cluster_usage[i]++;
+        if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Basic)
+          LogDebug("HGCPatternRecoByCA") << "LayerID: " << i << " count: " << (int)layer_cluster_usage[i] << std::endl;
+      }
+      // Put back indices, in the form of a Trackster, into the results vector
+      Trackster tmp;
+      tmp.vertices().reserve(effective_cluster_idx.size());
+      tmp.vertex_multiplicity().resize(effective_cluster_idx.size(), 0);
+      //regions and seedIndices can have different size
+      //if a seeding region does not lead to any trackster
+      tmp.setSeed(input.regions[0].collectionID, seedIndices[tracksterId]);
+      if (isRegionalIter) {
+        seedToTracksterAssociation[tmp.seedIndex()].push_back(tracksterId);
+      }
+      tmp.setOutInHopsPerformed(outInHopsV[tracksterId]);
+
+      std::pair<float, float> timeTrackster(-99., -1.);
+      hgcalsimclustertime::ComputeClusterTime timeEstimator;
+      timeTrackster = timeEstimator.fixSizeHighestDensity(times, timeErrors);
+      tmp.setTimeAndError(timeTrackster.first, timeTrackster.second);
+      std::copy(std::begin(effective_cluster_idx), std::end(effective_cluster_idx), std::back_inserter(tmp.vertices()));
+      // Propagate the correct graph connections
+      tmp.edges().reserve(ntuplet.size());
+      for (auto const & t : ntuplet) {
+        std::array<unsigned int, 2> edge = {{(unsigned int) doublets[t].innerClusterId(),
+                                            (unsigned int) doublets[t].outerClusterId()}};
+        tmp.edges().push_back(edge);
+      }
+      result.push_back(tmp);
+      tracksterId++;
     }
-    result.push_back(tmp);
-    tracksterId++;
   }
 
   for (auto &trackster : result) {

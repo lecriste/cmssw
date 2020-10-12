@@ -21,6 +21,9 @@ void PFClusterFromHGCalMultiCluster::buildClusters(const edm::Handle<reco::PFRec
   }
 
   for (const auto& mcl : hgcalMultiClusters) {
+    if (mcl.hitsAndFractions().empty()) {
+      continue;
+    }
     DetId seed;
     double energy = 0.0, highest_energy = 0.0;
     output.emplace_back();
