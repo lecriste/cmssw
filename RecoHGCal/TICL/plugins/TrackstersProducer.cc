@@ -54,11 +54,6 @@ private:
   edm::EDGetTokenT<TICLLayerTiles> layer_clusters_tiles_token_;
   edm::EDGetTokenT<TICLLayerTilesHFNose> layer_clusters_tiles_hfnose_token_;
   const edm::EDGetTokenT<std::vector<TICLSeedingRegion>> seeding_regions_token_;
-  const std::vector<int> filter_on_categories_;
-  const double pid_threshold_;
-  const double energy_em_over_total_threshold_;
-  const int shower_start_max_layer_;
-
   const std::string itername_;
 };
 DEFINE_FWK_MODULE(TrackstersProducer);
@@ -94,10 +89,6 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps, const Tracks
           consumes<edm::ValueMap<std::pair<float, float>>>(ps.getParameter<edm::InputTag>("time_layerclusters"))),
       seeding_regions_token_(
           consumes<std::vector<TICLSeedingRegion>>(ps.getParameter<edm::InputTag>("seeding_regions"))),
-      filter_on_categories_(ps.getParameter<std::vector<int>>("filter_on_categories")),
-      pid_threshold_(ps.getParameter<double>("pid_threshold")),
-      energy_em_over_total_threshold_(ps.getParameter<double>("energy_em_over_total_threshold")),
-      shower_start_max_layer_(ps.getParameter<int>("shower_start_max_layer")),
       itername_(ps.getParameter<std::string>("itername")) {
   if (doNose_) {
     layer_clusters_tiles_hfnose_token_ =
@@ -123,13 +114,16 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
   desc.add<std::vector<int>>("filter_on_categories", {0});
   desc.add<double>("pid_threshold", 0.);                    // make default such that no filtering is applied
   desc.add<double>("energy_em_over_total_threshold", -1.);  // make default such that no filtering is applied
-  desc.add<int>("shower_start_max_layer", 9999); // make default such that no filtering is applied
+  desc.add<double>("max_longitudinal_sigmaPCA", 9999);
+  desc.add<int>("shower_start_max_layer", 9999);  // make default such that no filtering is applied
   desc.add<int>("algo_verbosity", 0);
   desc.add<double>("min_cos_theta", 0.915);
+  desc.add<double>("root_doublet_max_distance_from_seed", 9999);
   desc.add<double>("min_cos_pointing", -1.);
-  desc.add<int>("missing_layers", 0);
+  desc.add<int>("skip_layers", 0);
+  desc.add<int>("max_missing_layers_in_trackster", 9999);
   desc.add<double>("etaLimitIncreaseWindow", 2.1);
-  desc.add<int>("min_clusters_per_ntuplet", 10);
+  desc.add<int>("min_layers_per_trackster", 10);
   desc.add<double>("max_delta_time", 3.);  //nsigma
   desc.add<bool>("out_in_dfs", true);
   desc.add<int>("max_out_in_hops", 10);
@@ -179,30 +173,11 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
     myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
   }
-
   // Now update the global mask and put it into the event
   output_mask->reserve(original_layerclusters_mask.size());
   // Copy over the previous state
   std::copy(
       std::begin(original_layerclusters_mask), std::end(original_layerclusters_mask), std::back_inserter(*output_mask));
-
-  // Filter results based on PID criteria or EM/Total energy ratio.
-  // We want to **keep** tracksters whose cumulative
-  // probability summed up over the selected categories
-  // is greater than the chosen threshold. Therefore
-  // the filtering function should **discard** all
-  // tracksters **below** the threshold.
-  auto filter_on_pids = [&](Trackster& t) -> bool {
-    auto cumulative_prob = 0.;
-    for (auto index : filter_on_categories_) {
-      cumulative_prob += t.id_probabilities(index);
-    }
-    return (cumulative_prob <= pid_threshold_) &&
-           (t.raw_em_energy() / t.raw_energy() < energy_em_over_total_threshold_);
-  };
-
-  // Actually filter results and shrink size to fit
-  result->erase(std::remove_if(result->begin(), result->end(), filter_on_pids), result->end());
 
   // Mask the used elements, accordingly
   for (auto const& trackster : *result) {
