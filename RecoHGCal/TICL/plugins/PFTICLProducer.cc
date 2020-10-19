@@ -108,6 +108,7 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
       candidate.setTrackRef(ref);
     }
 
+    // HGCAL as default values
     auto time = ticl_cand.time();
     auto timeE = ticl_cand.timeError();
     // Compute weighted average between HGCAL and MTD timing if available
@@ -119,8 +120,13 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
         const auto timeMTD = (*trackTimeH)[candidate.trackRef()];
         const auto timeEMTD = (*trackTimeErrH)[candidate.trackRef()];
 
-        timeE = sqrt(1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2)));
-        time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * pow(timeE,2);
+        if (timeEMTD>0 && timeEHGC>0) {
+          timeE = sqrt(1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2)));
+          time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * pow(timeE,2);
+        } else if (timeEMTD>0 && timeEHGC<0) {
+          timeE = timeEMTD;
+          time = timeMTD;
+        }
       }
     }
     candidate.setTime(time, timeE);
