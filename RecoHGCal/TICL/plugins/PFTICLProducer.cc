@@ -127,6 +127,8 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
           timeE = timeEMTD;
           time = timeMTD;
         }
+        time = timeMTD;
+        timeE = timeEMTD;
       }
     }
     candidate.setTime(time, timeE);
