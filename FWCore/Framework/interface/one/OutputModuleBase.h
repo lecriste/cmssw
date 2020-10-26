@@ -50,7 +50,6 @@ namespace edm {
   class ModuleCallingContext;
   class PreallocationConfiguration;
   class ActivityRegistry;
-  class ProductRegistry;
   class ThinnedAssociationsHelper;
   class SubProcessParentageHelper;
   class WaitingTask;
@@ -104,6 +103,8 @@ namespace edm {
       static void prevalidate(ConfigurationDescriptions&);
 
       //Output modules always need writeRun and writeLumi to be called
+      virtual bool wantsProcessBlocks() const = 0;
+      virtual bool wantsInputProcessBlocks() const = 0;
       virtual bool wantsGlobalRuns() const = 0;
       virtual bool wantsGlobalLuminosityBlocks() const = 0;
       bool wantsStreamRuns() const { return false; }
@@ -133,15 +134,14 @@ namespace edm {
 
       void doBeginJob();
       void doEndJob();
-      bool doEvent(EventPrincipal const& ep, EventSetupImpl const& c, ActivityRegistry*, ModuleCallingContext const*);
-      bool doBeginRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
-      bool doEndRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
-      bool doBeginLuminosityBlock(LuminosityBlockPrincipal const& lbp,
-                                  EventSetupImpl const& c,
-                                  ModuleCallingContext const*);
-      bool doEndLuminosityBlock(LuminosityBlockPrincipal const& lbp,
-                                EventSetupImpl const& c,
-                                ModuleCallingContext const*);
+      bool doEvent(EventTransitionInfo const&, ActivityRegistry*, ModuleCallingContext const*);
+      void doBeginProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
+      void doAccessInputProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
+      void doEndProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
+      bool doBeginRun(RunTransitionInfo const&, ModuleCallingContext const*);
+      bool doEndRun(RunTransitionInfo const&, ModuleCallingContext const*);
+      bool doBeginLuminosityBlock(LumiTransitionInfo const&, ModuleCallingContext const*);
+      bool doEndLuminosityBlock(LumiTransitionInfo const&, ModuleCallingContext const*);
 
       void setEventSelectionInfo(
           std::map<std::string, std::vector<std::pair<std::string, int>>> const& outputModulePathPositions,
@@ -208,6 +208,7 @@ namespace edm {
 
       virtual SharedResourcesAcquirer createAcquirer();
 
+      void doWriteProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
       void doWriteRun(RunPrincipal const& rp, ModuleCallingContext const*, MergeableRunProductMetadata const*);
       void doWriteLuminosityBlock(LuminosityBlockPrincipal const& lbp, ModuleCallingContext const*);
       void doOpenFile(FileBlock const& fb);

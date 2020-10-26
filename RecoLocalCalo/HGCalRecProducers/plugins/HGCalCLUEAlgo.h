@@ -40,12 +40,20 @@ public:
         dependSensor_(ps.getParameter<bool>("dependSensor")),
         dEdXweights_(ps.getParameter<std::vector<double>>("dEdXweights")),
         thicknessCorrection_(ps.getParameter<std::vector<double>>("thicknessCorrection")),
+        sciThicknessCorrection_(ps.getParameter<double>("sciThicknessCorrection")),
+        deltasi_index_regemfac_(ps.getParameter<int>("deltasi_index_regemfac")),
+        maxNumberOfThickIndices_(ps.getParameter<unsigned>("maxNumberOfThickIndices")),
         fcPerMip_(ps.getParameter<std::vector<double>>("fcPerMip")),
         fcPerEle_(ps.getParameter<double>("fcPerEle")),
         nonAgedNoises_(ps.getParameter<edm::ParameterSet>("noises").getParameter<std::vector<double>>("values")),
         noiseMip_(ps.getParameter<edm::ParameterSet>("noiseMip").getParameter<double>("noise_MIP")),
         use2x2_(ps.getParameter<bool>("use2x2")),
-        initialized_(false) {}
+        initialized_(false) {
+    // repeat same noises for CE-H as well
+    if (!isNose_) {
+      nonAgedNoises_.insert(std::end(nonAgedNoises_), std::begin(nonAgedNoises_), std::end(nonAgedNoises_));
+    }
+  }
 
   ~HGCalCLUEAlgoT() override {}
 
@@ -63,12 +71,16 @@ public:
 
   void reset() override {
     clusters_v_.clear();
+    clusters_v_.shrink_to_fit();
     for (auto& cl : numberOfClustersPerLayer_) {
       cl = 0;
     }
 
-    for (auto& cells : cells_)
+    for (auto& cells : cells_) {
       cells.clear();
+      cells.shrink_to_fit();
+    }
+    density_.clear();
   }
 
   Density getDensity() override;
@@ -90,6 +102,9 @@ public:
     iDesc.addUntracked<unsigned int>("verbosity", 3);
     iDesc.add<std::vector<double>>("dEdXweights", {});
     iDesc.add<std::vector<double>>("thicknessCorrection", {});
+    iDesc.add<double>("sciThicknessCorrection", 0.9);
+    iDesc.add<int>("deltasi_index_regemfac", 3);
+    iDesc.add<unsigned>("maxNumberOfThickIndices", 6);
     iDesc.add<std::vector<double>>("fcPerMip", {});
     iDesc.add<double>("fcPerEle", 0.0);
     edm::ParameterSetDescription descNestedNoises;
@@ -98,6 +113,7 @@ public:
     edm::ParameterSetDescription descNestedNoiseMIP;
     descNestedNoiseMIP.add<bool>("scaleByDose", false);
     descNestedNoiseMIP.add<unsigned int>("scaleByDoseAlgo", 0);
+    descNestedNoiseMIP.add<double>("scaleByDoseFactor", 1.);
     descNestedNoiseMIP.add<std::string>("doseMap", "");
     descNestedNoiseMIP.add<double>("noise_MIP", 1. / 100.);
     iDesc.add<edm::ParameterSetDescription>("noiseMip", descNestedNoiseMIP);
@@ -126,6 +142,9 @@ private:
   bool dependSensor_;
   std::vector<double> dEdXweights_;
   std::vector<double> thicknessCorrection_;
+  double sciThicknessCorrection_;
+  int deltasi_index_regemfac_;
+  unsigned maxNumberOfThickIndices_;
   std::vector<double> fcPerMip_;
   double fcPerEle_;
   std::vector<double> nonAgedNoises_;
@@ -173,6 +192,23 @@ private:
       sigmaNoise.clear();
       followers.clear();
       isSeed.clear();
+    }
+
+    void shrink_to_fit() {
+      detid.shrink_to_fit();
+      isSi.shrink_to_fit();
+      x.shrink_to_fit();
+      y.shrink_to_fit();
+      eta.shrink_to_fit();
+      phi.shrink_to_fit();
+      weight.shrink_to_fit();
+      rho.shrink_to_fit();
+      delta.shrink_to_fit();
+      nearestHigher.shrink_to_fit();
+      clusterIndex.shrink_to_fit();
+      sigmaNoise.shrink_to_fit();
+      followers.shrink_to_fit();
+      isSeed.shrink_to_fit();
     }
   };
 

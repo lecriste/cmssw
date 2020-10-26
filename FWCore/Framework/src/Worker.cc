@@ -4,12 +4,17 @@
 
 #include "FWCore/Framework/src/Worker.h"
 #include "FWCore/Framework/src/EarlyDeleteHelper.h"
+#include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/interface/EventSetupImpl.h"
+#include "FWCore/Framework/interface/LuminosityBlockPrincipal.h"
+#include "FWCore/Framework/interface/ProcessBlockPrincipal.h"
+#include "FWCore/Framework/interface/RunPrincipal.h"
 #include "FWCore/ServiceRegistry/interface/StreamContext.h"
 #include "FWCore/Concurrency/interface/WaitingTask.h"
 #include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 #include "FWCore/Concurrency/interface/WaitingTaskWithArenaHolder.h"
 #include "FWCore/Framework/src/esTaskArenas.h"
+#include "tbb/global_control.h"
 
 namespace edm {
   namespace {
@@ -156,10 +161,7 @@ namespace edm {
     }
   }
 
-  bool Worker::shouldRethrowException(std::exception_ptr iPtr,
-                                      ParentContext const& parentContext,
-                                      bool isEvent,
-                                      TransitionIDValueBase const& iID) const {
+  bool Worker::shouldRethrowException(std::exception_ptr iPtr, ParentContext const& parentContext, bool isEvent) const {
     // NOTE: the warning printed as a result of ignoring or failing
     // a module will only be printed during the full true processing
     // pass of this module
@@ -197,43 +199,6 @@ namespace edm {
       }
     }
     return true;
-  }
-
-  void Worker::prefetchAsync(WaitingTask* iTask,
-                             ServiceToken const& token,
-                             ParentContext const& parentContext,
-                             Principal const& iPrincipal,
-                             EventSetupImpl const& iEventSetup,
-                             edm::Transition iTransition) {
-    // Prefetch products the module declares it consumes (not including the products it maybe consumes)
-    std::vector<ProductResolverIndexAndSkipBit> const& items = itemsToGetFrom(iPrincipal.branchType());
-
-    moduleCallingContext_.setContext(ModuleCallingContext::State::kPrefetching, parentContext, nullptr);
-
-    if (iPrincipal.branchType() == InEvent) {
-      actReg_->preModuleEventPrefetchingSignal_.emit(*moduleCallingContext_.getStreamContext(), moduleCallingContext_);
-    }
-
-    //Need to be sure the ref count isn't set to 0 immediately
-    iTask->increment_ref_count();
-
-    esPrefetchAsync(iTask, iEventSetup, iTransition);
-    for (auto const& item : items) {
-      ProductResolverIndex productResolverIndex = item.productResolverIndex();
-      bool skipCurrentProcess = item.skipCurrentProcess();
-      if (productResolverIndex != ProductResolverIndexAmbiguous) {
-        iPrincipal.prefetchAsync(iTask, productResolverIndex, skipCurrentProcess, token, &moduleCallingContext_);
-      }
-    }
-
-    if (iPrincipal.branchType() == InEvent) {
-      preActionBeforeRunEventAsync(iTask, moduleCallingContext_, iPrincipal);
-    }
-
-    if (0 == iTask->decrement_ref_count()) {
-      //if everything finishes before we leave this routine, we need to launch the task
-      tbb::task::spawn(*iTask);
-    }
   }
 
   void Worker::prePrefetchSelectionAsync(WaitingTask* successTask,
@@ -279,7 +244,13 @@ namespace edm {
     choiceHolder.doneWaiting(std::exception_ptr{});
   }
 
-  void Worker::esPrefetchAsync(WaitingTask* iTask, EventSetupImpl const& iImpl, Transition iTrans) {
+  void Worker::esPrefetchAsync(WaitingTask* iTask,
+                               EventSetupImpl const& iImpl,
+                               Transition iTrans,
+                               ServiceToken const& iToken) {
+    if (iTrans >= edm::Transition::NumberOfEventSetupTransitions) {
+      return;
+    }
     auto const& recs = esRecordsToGetFrom(iTrans);
     auto const& items = esItemsToGetFrom(iTrans);
 
@@ -292,36 +263,40 @@ namespace edm {
     // default tbb arena. It will not process any tasks on the es arena. We need to add a
     // task that will synchronously do a wait_for_all in the es arena to be sure prefetching
     // will work.
-    if UNLIKELY (tbb::this_task_arena::max_concurrency() == 1) {
-      //We spawn this first so that the other ES tasks are before it in the TBB queue
-      tbb::task::spawn(*make_functor_task(tbb::task::allocate_root(),
-                                          [this, task = edm::WaitingTaskHolder(iTask), iTrans, &iImpl]() mutable {
-                                            auto waitTask = edm::make_empty_waiting_task();
-                                            waitTask->set_ref_count(2);
-                                            auto waitTaskPtr = waitTask.get();
-                                            esTaskArena().execute([waitTaskPtr, this, iTrans, &iImpl]() {
-                                              auto const& recs = esRecordsToGetFrom(iTrans);
-                                              auto const& items = esItemsToGetFrom(iTrans);
-                                              waitTaskPtr->set_ref_count(2);
-                                              for (size_t i = 0; i != items.size(); ++i) {
-                                                if (recs[i] != ESRecordIndex{}) {
-                                                  auto rec = iImpl.findImpl(recs[i]);
-                                                  if (rec) {
-                                                    rec->prefetchAsync(waitTaskPtr, items[i], &iImpl);
-                                                  }
-                                                }
-                                              }
-                                              waitTaskPtr->decrement_ref_count();
-                                              waitTaskPtr->wait_for_all();
-                                            });
 
-                                            auto exPtr = waitTask->exceptionPtr();
-                                            if (exPtr) {
-                                              task.doneWaiting(*exPtr);
-                                            } else {
-                                              task.doneWaiting(std::exception_ptr{});
-                                            }
-                                          }));
+    if UNLIKELY (tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism) == 1) {
+      //We spawn this first so that the other ES tasks are before it in the TBB queue
+      tbb::task_arena edArena(tbb::task_arena::attach{});
+      tbb::task::spawn(
+          *make_functor_task(tbb::task::allocate_root(),
+                             [this, task = edm::WaitingTaskHolder(iTask), iTrans, &iImpl, iToken, edArena]() mutable {
+                               esTaskArena().execute([this, iTrans, &iImpl, iToken, task = std::move(task), edArena]() {
+                                 auto waitTask = edm::make_empty_waiting_task();
+                                 auto const& recs = esRecordsToGetFrom(iTrans);
+                                 auto const& items = esItemsToGetFrom(iTrans);
+                                 waitTask->set_ref_count(2);
+                                 for (size_t i = 0; i != items.size(); ++i) {
+                                   if (recs[i] != ESRecordIndex{}) {
+                                     auto rec = iImpl.findImpl(recs[i]);
+                                     if (rec) {
+                                       rec->prefetchAsync(waitTask.get(), items[i], &iImpl, iToken);
+                                     }
+                                   }
+                                 }
+                                 waitTask->decrement_ref_count();
+                                 waitTask->wait_for_all();
+
+                                 auto exPtr = waitTask->exceptionPtr();
+                                 tbb::task_arena(edArena).execute([task, exPtr]() {
+                                   auto t = task;
+                                   if (exPtr) {
+                                     t.doneWaiting(*exPtr);
+                                   } else {
+                                     t.doneWaiting(std::exception_ptr{});
+                                   }
+                                 });
+                               });
+                             }));
     } else {
       //We need iTask to run in the default arena since it is not an ES task
       auto task =
@@ -340,11 +315,24 @@ namespace edm {
           if (recs[i] != ESRecordIndex{}) {
             auto rec = iImpl.findImpl(recs[i]);
             if (rec) {
-              rec->prefetchAsync(task, items[i], &iImpl);
+              rec->prefetchAsync(task, items[i], &iImpl, iToken);
             }
           }
         }
       });
+    }
+  }
+
+  void Worker::edPrefetchAsync(WaitingTask* iTask, ServiceToken const& token, Principal const& iPrincipal) const {
+    // Prefetch products the module declares it consumes
+    std::vector<ProductResolverIndexAndSkipBit> const& items = itemsToGetFrom(iPrincipal.branchType());
+
+    for (auto const& item : items) {
+      ProductResolverIndex productResolverIndex = item.productResolverIndex();
+      bool skipCurrentProcess = item.skipCurrentProcess();
+      if (productResolverIndex != ProductResolverIndexAmbiguous) {
+        iPrincipal.prefetchAsync(iTask, productResolverIndex, skipCurrentProcess, token, &moduleCallingContext_);
+      }
     }
   }
 
@@ -436,6 +424,15 @@ namespace edm {
     }
   }
 
+  void Worker::registerThinnedAssociations(ProductRegistry const& registry, ThinnedAssociationsHelper& helper) {
+    try {
+      implRegisterThinnedAssociations(registry, helper);
+    } catch (cms::Exception& ex) {
+      ex.addContext("Calling registerThinnedAssociations() for module " + description().moduleLabel());
+      throw ex;
+    }
+  }
+
   void Worker::skipOnPath(EventPrincipal const& iEvent) {
     if (earlyDeleteHelper_) {
       earlyDeleteHelper_->pathFinished(iEvent);
@@ -451,17 +448,15 @@ namespace edm {
     }
   }
 
-  void Worker::runAcquire(EventPrincipal const& ep,
-                          EventSetupImpl const& es,
+  void Worker::runAcquire(EventTransitionInfo const& info,
                           ParentContext const& parentContext,
                           WaitingTaskWithArenaHolder& holder) {
     ModuleContextSentry moduleContextSentry(&moduleCallingContext_, parentContext);
     try {
-      convertException::wrap([&]() { this->implDoAcquire(ep, es, &moduleCallingContext_, holder); });
+      convertException::wrap([&]() { this->implDoAcquire(info, &moduleCallingContext_, holder); });
     } catch (cms::Exception& ex) {
       exceptionContext(ex, &moduleCallingContext_);
-      TransitionIDValue<EventPrincipal> idValue(ep);
-      if (shouldRethrowException(std::current_exception(), parentContext, true, idValue)) {
+      if (shouldRethrowException(std::current_exception(), parentContext, true)) {
         timesRun_.fetch_add(1, std::memory_order_relaxed);
         throw;
       }
@@ -469,23 +464,21 @@ namespace edm {
   }
 
   void Worker::runAcquireAfterAsyncPrefetch(std::exception_ptr const* iEPtr,
-                                            EventPrincipal const& ep,
-                                            EventSetupImpl const& es,
+                                            EventTransitionInfo const& eventTransitionInfo,
                                             ParentContext const& parentContext,
                                             WaitingTaskWithArenaHolder holder) {
     ranAcquireWithoutException_ = false;
     std::exception_ptr exceptionPtr;
     if (iEPtr) {
       assert(*iEPtr);
-      TransitionIDValue<EventPrincipal> idValue(ep);
-      if (shouldRethrowException(*iEPtr, parentContext, true, idValue)) {
+      if (shouldRethrowException(*iEPtr, parentContext, true)) {
         exceptionPtr = *iEPtr;
       }
       moduleCallingContext_.setContext(ModuleCallingContext::State::kInvalid, ParentContext(), nullptr);
     } else {
       // Caught exception is propagated via WaitingTaskWithArenaHolder
       CMS_SA_ALLOW try {
-        runAcquire(ep, es, parentContext, holder);
+        runAcquire(eventTransitionInfo, parentContext, holder);
         ranAcquireWithoutException_ = true;
       } catch (...) {
         exceptionPtr = std::current_exception();

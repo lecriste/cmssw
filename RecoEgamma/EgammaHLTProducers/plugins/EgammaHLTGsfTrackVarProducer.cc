@@ -73,8 +73,8 @@ EgammaHLTGsfTrackVarProducer::EgammaHLTGsfTrackVarProducer(const edm::ParameterS
       electronToken_{consumes<reco::ElectronCollection>(config.getParameter<edm::InputTag>("inputCollection"))},
       gsfTrackToken_{consumes<reco::GsfTrackCollection>(config.getParameter<edm::InputTag>("inputCollection"))},
       beamSpotToken_{consumes<reco::BeamSpot>(config.getParameter<edm::InputTag>("beamSpotProducer"))},
-      magneticFieldToken_{esConsumes<MagneticField, IdealMagneticFieldRecord>()},
-      trackerGeometryToken_{esConsumes<TrackerGeometry, TrackerDigiGeometryRecord>()},
+      magneticFieldToken_{esConsumes()},
+      trackerGeometryToken_{esConsumes()},
       upperTrackNrToRemoveCut_{config.getParameter<int>("upperTrackNrToRemoveCut")},
       lowerTrackNrToRemoveCut_{config.getParameter<int>("lowerTrackNrToRemoveCut")},
       useDefaultValuesForBarrel_{config.getParameter<bool>("useDefaultValuesForBarrel")},
@@ -193,8 +193,8 @@ void EgammaHLTGsfTrackVarProducer::produce(edm::StreamID, edm::Event& iEvent, co
           }
         }
 
-        if (gsfTracks[trkNr]->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS) < missingHitsValue) {
-          missingHitsValue = gsfTracks[trkNr]->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS);
+        if (gsfTracks[trkNr]->missingInnerHits() < missingHitsValue) {
+          missingHitsValue = gsfTracks[trkNr]->missingInnerHits();
         }
 
         if (gsfTracks[trkNr]->numberOfValidHits() < validHitsValue) {

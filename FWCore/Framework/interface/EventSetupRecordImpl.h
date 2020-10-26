@@ -67,6 +67,7 @@ namespace edm {
   class ESInputTag;
   class EventSetupImpl;
   class WaitingTask;
+  class ServiceToken;
 
   namespace eventsetup {
     struct ComponentDescription;
@@ -84,12 +85,8 @@ namespace edm {
 
       ValidityInterval validityInterval() const;
 
-      ///returns false if no data available for key
-      bool doGet(DataKey const& aKey, EventSetupImpl const*, bool aGetTransiently = false) const;
-      bool doGet(ESProxyIndex iProxyIndex, EventSetupImpl const*, bool aGetTransiently = false) const;
-
       ///prefetch the data to setup for subsequent calls to getImplementation
-      void prefetchAsync(WaitingTask* iTask, ESProxyIndex iProxyIndex, EventSetupImpl const*) const;
+      void prefetchAsync(WaitingTask* iTask, ESProxyIndex iProxyIndex, EventSetupImpl const*, ServiceToken const&) const;
 
       /**returns true only if someone has already requested data for this key
           and the data was retrieved

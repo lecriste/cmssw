@@ -1,5 +1,6 @@
-#include <zlib.h>
 #include <iostream>
+#include <memory>
+#include <zlib.h>
 
 #include "IOPool/Streamer/interface/FRDEventMessage.h"
 #include "IOPool/Streamer/interface/FRDFileHeader.h"
@@ -63,8 +64,9 @@ bool FRDStreamSource::setRunAndEventInfo(edm::EventID& id,
   }
 
   if (detectedFRDversion_ == 0) {
-    fin_.read((char*)&detectedFRDversion_, sizeof(uint32_t));
-    assert(detectedFRDversion_ > 0 && detectedFRDversion_ <= 5);
+    fin_.read((char*)&detectedFRDversion_, sizeof(uint16_t));
+    fin_.read((char*)&flags_, sizeof(uint16_t));
+    assert(detectedFRDversion_ > 0 && detectedFRDversion_ <= 6);
     if (buffer_.size() < FRDHeaderVersionSize[detectedFRDversion_])
       buffer_.resize(FRDHeaderVersionSize[detectedFRDversion_]);
     *((uint32_t*)(&buffer_[0])) = detectedFRDversion_;
@@ -91,7 +93,7 @@ bool FRDStreamSource::setRunAndEventInfo(edm::EventID& id,
     if (fin_.gcount() != totalSize - FRDHeaderVersionSize[detectedFRDversion_]) {
       throw cms::Exception("FRDStreamSource::setRunAndEventInfo") << "premature end of file " << *itFileName_;
     }
-    frdEventMsg.reset(new FRDEventMsgView(&buffer_[0]));
+    frdEventMsg = std::make_unique<FRDEventMsgView>(&buffer_[0]);
   }
 
   if (verifyChecksum_ && frdEventMsg->version() >= 5) {

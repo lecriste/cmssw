@@ -1,4 +1,5 @@
 <use name="DQMServices/Core"/>
+<use name="DataFormats/Scalers"/>
 <use name="DataFormats/TrackReco"/>
 <use name="FWCore/Framework"/>
 <use name="DataFormats/BeamSpot"/>
@@ -42,5 +43,9 @@
 </library>
 
 <library file="BeamSpotProblemMonitor.cc" name="BeamSpotProblemMonitor">
+  <flags EDM_PLUGIN="1"/>
+</library>
+
+<library file="FakeBeamMonitor.cc" name="FakeBeamMonitor">
   <flags EDM_PLUGIN="1"/>
 </library>

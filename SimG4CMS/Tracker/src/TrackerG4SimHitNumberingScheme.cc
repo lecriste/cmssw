@@ -35,7 +35,7 @@ void TrackerG4SimHitNumberingScheme::buildAll() {
     TrackerG4SimHitNumberingScheme::Nav_Story st;
     touchToNavStory(hist, st);
 
-    directMap_[st] = theSD->geographicalID();
+    directMap_[st] = theSD->geographicalId();
 
     LogDebug("TrackerSimDebugNumbering") << " INSERTING LV " << hist->GetVolume()->GetLogicalVolume()->GetName()
                                          << " SD: "

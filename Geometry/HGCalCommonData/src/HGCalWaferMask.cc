@@ -1,10 +1,10 @@
+
 #include "Geometry/HGCalCommonData/interface/HGCalWaferMask.h"
 #include "Geometry/HGCalCommonData/interface/HGCalTypes.h"
 #include "Geometry/HGCalCommonData/interface/HGCalGeomTools.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include <algorithm>
-
 //#define EDM_ML_DEBUG
 
 bool HGCalWaferMask::maskCell(int u, int v, int n, int ncor, int fcor, int corners) {
@@ -107,7 +107,6 @@ The argument 'corners' controls the types of wafers the user wants: for instance
 bool HGCalWaferMask::goodCell(int u, int v, int n, int type, int rotn) {
   bool good(false);
   int n2 = n / 2;
-  int n3 = (n + 1) / 3;
   int n4 = n / 4;
   switch (type) {
     case (HGCalTypes::WaferFull): {  //WaferFull
@@ -284,7 +283,7 @@ bool HGCalWaferMask::goodCell(int u, int v, int n, int type, int rotn) {
           break;
         }
         case (HGCalTypes::WaferCorner4): {
-          int v2 = v / 2;
+          int v2 = ((v + 1) / 2);
           good = ((u - v2) >= n);
           break;
         }
@@ -299,27 +298,29 @@ bool HGCalWaferMask::goodCell(int u, int v, int n, int type, int rotn) {
     case (HGCalTypes::WaferSemi2): {  //WaferSemi2
       switch (rotn) {
         case (HGCalTypes::WaferCorner0): {
-          good = ((u + v) < (4 * n3));
+          good = ((u + v) < (3 * n2));
           break;
         }
         case (HGCalTypes::WaferCorner1): {
-          good = ((2 * u - v) <= n2);
+          good = ((2 * u - v) < n2);
           break;
         }
         case (HGCalTypes::WaferCorner2): {
-          good = ((2 * v - u) > (3 * n2));
+          int u2 = ((u + 1) / 2);
+          good = ((v - u2) >= (3 * n4));
           break;
         }
         case (HGCalTypes::WaferCorner3): {
-          good = ((u + v) >= (5 * n2 - 1));
+          good = ((u + v) > (5 * n2 - 1));
           break;
         }
         case (HGCalTypes::WaferCorner4): {
-          good = ((2 * u - v) < (3 * n2));
+          good = ((2 * u - v) > (3 * n2));
           break;
         }
         default: {
-          good = ((2 * v - u) <= n3);
+          int u2 = ((u + 1) / 2);
+          good = ((v - u2) < n4);
           break;
         }
       }
@@ -331,6 +332,44 @@ bool HGCalWaferMask::goodCell(int u, int v, int n, int type, int rotn) {
                                 << " good " << good;
 #endif
   return good;
+}
+
+int HGCalWaferMask::getRotation(int zside, int type, int rotn) {
+  if (rotn >= HGCalTypes::WaferCornerMax)
+    rotn = HGCalTypes::WaferCorner0;
+  int newrotn(rotn);
+  if ((zside < 0) && (type != HGCalTypes::WaferFull)) {
+    if (type == HGCalTypes::WaferFive) {  //WaferFive
+      static const int rot1[HGCalTypes::WaferCornerMax] = {HGCalTypes::WaferCorner4,
+                                                           HGCalTypes::WaferCorner3,
+                                                           HGCalTypes::WaferCorner2,
+                                                           HGCalTypes::WaferCorner1,
+                                                           HGCalTypes::WaferCorner0,
+                                                           HGCalTypes::WaferCorner5};
+      newrotn = rot1[rotn];
+    } else if ((type == HGCalTypes::WaferThree) || (type == HGCalTypes::WaferSemi) ||
+               (type == HGCalTypes::WaferSemi2)) {  //WaferThree/WaferSemi/WaferSemi2
+      static const int rot2[HGCalTypes::WaferCornerMax] = {HGCalTypes::WaferCorner2,
+                                                           HGCalTypes::WaferCorner1,
+                                                           HGCalTypes::WaferCorner0,
+                                                           HGCalTypes::WaferCorner5,
+                                                           HGCalTypes::WaferCorner4,
+                                                           HGCalTypes::WaferCorner3};
+      newrotn = rot2[rotn];
+    } else {  //WaferHalf/WaferChopTwo/WaferChopTwoM
+      static const int rot3[HGCalTypes::WaferCornerMax] = {HGCalTypes::WaferCorner3,
+                                                           HGCalTypes::WaferCorner2,
+                                                           HGCalTypes::WaferCorner1,
+                                                           HGCalTypes::WaferCorner0,
+                                                           HGCalTypes::WaferCorner5,
+                                                           HGCalTypes::WaferCorner4};
+      newrotn = rot3[rotn];
+    }
+  }
+#ifdef EDM_ML_DEBUG
+  edm::LogVerbatim("HGCalGeom") << "zside " << zside << " type " << type << " rotn " << rotn << ":" << newrotn;
+#endif
+  return newrotn;
 }
 
 std::pair<int, int> HGCalWaferMask::getTypeMode(const double& xpos,

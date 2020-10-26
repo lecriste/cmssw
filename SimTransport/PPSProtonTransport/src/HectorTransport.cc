@@ -5,6 +5,8 @@
 //Hector headers
 #include "H_BeamLine.h"
 #include "H_BeamParticle.h"
+#include <memory>
+
 #include <string>
 
 HectorTransport::~HectorTransport(){};
@@ -151,11 +153,12 @@ bool HectorTransport::transportProton(const HepMC::GenParticle* gpart) {
   double partP = sqrt(pow(h_p.getE(), 2) - ProtonMassSQ);
   double theta = sqrt(thx * thx + thy * thy) * urad;
 
-  TLorentzVector p_out(
-      tan(thx * urad) * partP * cos(theta), tan(thy * urad) * partP * cos(theta), partP * cos(theta), h_p.getE());
+  // copy the kinematic changing to CMS ref. frame, only the negative Pz needs to be changed
+  TLorentzVector p_out(-tan(thx * urad) * partP * cos(theta),
+                       tan(thy * urad) * partP * cos(theta),
+                       -direction * partP * cos(theta),
+                       h_p.getE());
 
-  // get variables in CMS ref frame
-  p_out.RotateY(TMath::Pi());
   m_beamPart[line] = p_out;
   m_xAtTrPoint[line] = -x1_ctpps * um_to_mm;  // move to CMS ref. frame
   m_yAtTrPoint[line] = y1_ctpps * um_to_mm;
@@ -171,11 +174,11 @@ bool HectorTransport::setBeamLine() {
 
   // construct beam line for PPS (forward 1 backward 2):
   if (fPPSBeamLineLength_ > 0.) {
-    m_beamline45 = std::unique_ptr<H_BeamLine>(
-        new H_BeamLine(-1, fPPSBeamLineLength_ + 0.1));  // it is needed to move too  (direction, length, beamEnergy_)
+    m_beamline45 = std::make_unique<H_BeamLine>(
+        -1, fPPSBeamLineLength_ + 0.1);  // it is needed to move too  (direction, length, beamEnergy_)
     m_beamline45->fill(b2.fullPath(), 1, "IP5");
-    m_beamline56 = std::unique_ptr<H_BeamLine>(
-        new H_BeamLine(1, fPPSBeamLineLength_ + 0.1));  // the same as above, it requires a change in HECTOR
+    m_beamline56 = std::make_unique<H_BeamLine>(
+        1, fPPSBeamLineLength_ + 0.1);  // the same as above, it requires a change in HECTOR
     m_beamline56->fill(b1.fullPath(), 1, "IP5");
   } else {
     if (verbosity_)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import sys
+import sys, os
 
 from Configuration.PyReleaseValidation.MatrixReader import MatrixReader
 from Configuration.PyReleaseValidation.MatrixRunner import MatrixRunner
@@ -85,11 +85,9 @@ if __name__ == '__main__':
                      10824.0, #2018 ttbar
                      11634.0, #2021 ttbar
                      12434.0, #2023 ttbar
-                     20034.0, #2026D35 ttbar (MTD TDR baseline)
-                     20434.0, #2026D41 ttbar (L1T TDR baseline)
-                     21234.0, #2026D44 (exercise HF nose)
                      23234.0, #2026D49 ttbar (HLT TDR baseline w/ HGCal v11)
-                     23234.1001, #as 23234.0 but reading 11_0_X digi inputs
+                     23434.999, #2026D49 ttbar premixing stage1+stage2, PU50
+                     28234.0, #2026D60 (exercise HF nose)
                      25202.0, #2016 ttbar UP15 PU
                      250202.181, #2018 ttbar stage1 + stage2 premix
                      ],
@@ -129,6 +127,11 @@ if __name__ == '__main__':
                       help='number of threads per process to use in cmsRun.',
                       dest='nThreads',
                       default=1
+                     )
+    parser.add_option('--nStreams',
+                      help='number of streams to use in cmsRun.',
+                      dest='nStreams',
+                      default=0
                      )
     parser.add_option('--numberEventsInLuminosityBlock',
                       help='number of events in a luminosity block',
@@ -278,9 +281,15 @@ if __name__ == '__main__':
                       default=False,
                       action='store_true')
 
+    parser.add_option('--sites',
+                      help='Run DAS query to get data from a specific site (default is T2_CH_CERN). Set it to empty string to search all sites.',
+                      dest='dasSites',
+                      default='T2_CH_CERN',
+                      action='store')
+
     opt,args = parser.parse_args()
+    os.environ["CMSSW_DAS_QUERY_SITES"]=opt.dasSites
     if opt.IBEos:
-      import os
       try:from commands import getstatusoutput as run_cmd
       except:from subprocess import getstatusoutput as run_cmd
 
@@ -343,6 +352,7 @@ if __name__ == '__main__':
     if opt.fromScratch: opt.fromScratch = opt.fromScratch.split(',')
     if opt.nProcs: opt.nProcs=int(opt.nProcs)
     if opt.nThreads: opt.nThreads=int(opt.nThreads)
+    if opt.nStreams: opt.nStreams=int(opt.nStreams)
     if (opt.numberEventsInLuminosityBlock): opt.numberEventsInLuminosityBlock=int(opt.numberEventsInLuminosityBlock)
     if (opt.memoryOffset): opt.memoryOffset=int(opt.memoryOffset)
     if (opt.memPerCore): opt.memPerCore=int(opt.memPerCore)

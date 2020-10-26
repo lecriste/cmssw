@@ -193,6 +193,8 @@ void EDConsumerBase::updateLookup(BranchType iBranchType,
 }
 
 void EDConsumerBase::updateLookup(eventsetup::ESRecordsToProxyIndices const& iPI) {
+  registerLateConsumes(iPI);
+
   unsigned int index = 0;
   for (auto it = m_esTokenInfo.begin<kESLookupInfo>(); it != m_esTokenInfo.end<kESLookupInfo>(); ++it, ++index) {
     auto indexInRecord = iPI.indexInRecord(it->m_record, it->m_key);
@@ -251,6 +253,9 @@ ESTokenIndex EDConsumerBase::recordESConsumes(Transition iTrans,
   m_esTokenInfo.emplace_back(
       ESTokenLookupInfo{iRecord, eventsetup::DataKey{iDataType, iTag.data().c_str()}, startOfComponentName},
       ESProxyIndex{-1});
+  if (iTrans >= edm::Transition::NumberOfEventSetupTransitions) {
+    throwESConsumesInProcessBlock();
+  }
   auto indexForToken = esItemsToGetFromTransition_[static_cast<unsigned int>(iTrans)].size();
   esItemsToGetFromTransition_[static_cast<unsigned int>(iTrans)].emplace_back(-1 * (index + 1));
   esRecordsToGetFromTransition_[static_cast<unsigned int>(iTrans)].emplace_back();
@@ -412,6 +417,12 @@ void EDConsumerBase::throwConsumesCallAfterFrozen(TypeToGet const& typeToGet, In
                                      << "and " << inputTag << "\n";
 }
 
+void EDConsumerBase::throwESConsumesInProcessBlock() const {
+  throw cms::Exception("LogicError")
+      << "A module declared it consumes an EventSetup product during a ProcessBlock transition.\n"
+      << "EventSetup products can only be consumed in Event, Lumi, or Run transitions.\n";
+}
+
 namespace {
   struct CharStarComp {
     bool operator()(const char* iLHS, const char* iRHS) const { return strcmp(iLHS, iRHS) < 0; }
@@ -419,41 +430,47 @@ namespace {
 }  // namespace
 
 namespace {
-  void insertFoundModuleLabel(const char* consumedModuleLabel,
+  void insertFoundModuleLabel(edm::KindOfType consumedTypeKind,
+                              edm::TypeID consumedType,
+                              const char* consumedModuleLabel,
+                              const char* consumedProductInstance,
                               std::vector<ModuleDescription const*>& modules,
                               std::set<std::string>& alreadyFound,
                               std::map<std::string, ModuleDescription const*> const& labelsToDesc,
                               ProductRegistry const& preg) {
     // Convert from label string to module description, eliminate duplicates,
     // then insert into the vector of modules
-    auto it = labelsToDesc.find(consumedModuleLabel);
-    if (it != labelsToDesc.end()) {
+    if (auto it = labelsToDesc.find(consumedModuleLabel); it != labelsToDesc.end()) {
       if (alreadyFound.insert(consumedModuleLabel).second) {
         modules.push_back(it->second);
       }
       return;
     }
     // Deal with EDAlias's by converting to the original module label first
-    std::vector<std::pair<std::string, std::string> > const& aliasToOriginal = preg.aliasToOriginal();
-    std::pair<std::string, std::string> target(consumedModuleLabel, std::string());
-    auto iter = std::lower_bound(aliasToOriginal.begin(), aliasToOriginal.end(), target);
-    if (iter != aliasToOriginal.end() && iter->first == consumedModuleLabel) {
-      std::string const& originalModuleLabel = iter->second;
-      auto iter2 = labelsToDesc.find(originalModuleLabel);
-      if (iter2 != labelsToDesc.end()) {
-        if (alreadyFound.insert(originalModuleLabel).second) {
-          modules.push_back(iter2->second);
+    if (auto aliasToModuleLabels =
+            preg.aliasToModules(consumedTypeKind, consumedType, consumedModuleLabel, consumedProductInstance);
+        not aliasToModuleLabels.empty()) {
+      bool foundInLabelsToDesc = false;
+      for (auto const& label : aliasToModuleLabels) {
+        if (auto it = labelsToDesc.find(label); it != labelsToDesc.end()) {
+          if (alreadyFound.insert(label).second) {
+            modules.push_back(it->second);
+          }
+          foundInLabelsToDesc = true;
         }
+      }
+      if (foundInLabelsToDesc) {
         return;
       }
     }
     // Ignore the source products, we are only interested in module products.
     // As far as I know, it should never be anything else so throw if something
     // unknown gets passed in.
-    if (std::string(consumedModuleLabel) != "source") {
+    if (std::string_view(consumedModuleLabel) != "source") {
       throw cms::Exception("EDConsumerBase", "insertFoundModuleLabel")
-          << "Couldn't find ModuleDescription for the consumed module label: " << std::string(consumedModuleLabel)
-          << "\n";
+          << "Couldn't find ModuleDescription for the consumed product type: '" << consumedType.className()
+          << "' module label: '" << consumedModuleLabel << "' product instance name: '" << consumedProductInstance
+          << "'";
     }
   }
 }  // namespace
@@ -472,25 +489,37 @@ void EDConsumerBase::modulesWhoseProductsAreConsumed(std::vector<ModuleDescripti
        ++itInfo, ++itKind, ++itLabels) {
     if (itInfo->m_branchType == InEvent and (not itInfo->m_index.skipCurrentProcess())) {
       const unsigned int labelStart = itLabels->m_startOfModuleLabel;
-      const char* consumedModuleLabel = &(m_tokenLabels[labelStart]);
-      const char* consumedProcessName = consumedModuleLabel + itLabels->m_deltaToProcessName;
+      const char* const consumedModuleLabel = &(m_tokenLabels[labelStart]);
+      const char* const consumedProductInstance = consumedModuleLabel + itLabels->m_deltaToProductInstance;
+      const char* const consumedProcessName = consumedModuleLabel + itLabels->m_deltaToProcessName;
 
       if (*consumedModuleLabel != '\0') {    // not a consumesMany
         if (*consumedProcessName != '\0') {  // process name is specified in consumes call
           if (processName == consumedProcessName &&
-              iHelper.index(*itKind,
-                            itInfo->m_type,
-                            consumedModuleLabel,
-                            consumedModuleLabel + itLabels->m_deltaToProductInstance,
-                            consumedModuleLabel + itLabels->m_deltaToProcessName) != ProductResolverIndexInvalid) {
-            insertFoundModuleLabel(consumedModuleLabel, modules, alreadyFound, labelsToDesc, preg);
+              iHelper.index(
+                  *itKind, itInfo->m_type, consumedModuleLabel, consumedProductInstance, consumedProcessName) !=
+                  ProductResolverIndexInvalid) {
+            insertFoundModuleLabel(*itKind,
+                                   itInfo->m_type,
+                                   consumedModuleLabel,
+                                   consumedProductInstance,
+                                   modules,
+                                   alreadyFound,
+                                   labelsToDesc,
+                                   preg);
           }
         } else {  // process name was empty
-          auto matches = iHelper.relatedIndexes(
-              *itKind, itInfo->m_type, consumedModuleLabel, consumedModuleLabel + itLabels->m_deltaToProductInstance);
+          auto matches = iHelper.relatedIndexes(*itKind, itInfo->m_type, consumedModuleLabel, consumedProductInstance);
           for (unsigned int j = 0; j < matches.numberOfMatches(); ++j) {
             if (processName == matches.processName(j)) {
-              insertFoundModuleLabel(consumedModuleLabel, modules, alreadyFound, labelsToDesc, preg);
+              insertFoundModuleLabel(*itKind,
+                                     itInfo->m_type,
+                                     consumedModuleLabel,
+                                     consumedProductInstance,
+                                     modules,
+                                     alreadyFound,
+                                     labelsToDesc,
+                                     preg);
             }
           }
         }
@@ -499,7 +528,14 @@ void EDConsumerBase::modulesWhoseProductsAreConsumed(std::vector<ModuleDescripti
         auto matches = iHelper.relatedIndexes(*itKind, itInfo->m_type);
         for (unsigned int j = 0; j < matches.numberOfMatches(); ++j) {
           if (processName == matches.processName(j)) {
-            insertFoundModuleLabel(matches.moduleLabel(j), modules, alreadyFound, labelsToDesc, preg);
+            insertFoundModuleLabel(*itKind,
+                                   itInfo->m_type,
+                                   matches.moduleLabel(j),
+                                   matches.productInstanceName(j),
+                                   modules,
+                                   alreadyFound,
+                                   labelsToDesc,
+                                   preg);
           }
         }
       }

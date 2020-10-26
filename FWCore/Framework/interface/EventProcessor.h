@@ -156,10 +156,6 @@ namespace edm {
     /// inactive.
     bool endPathsEnabled() const;
 
-    /// Return the trigger report information on paths,
-    /// modules-in-path, modules-in-endpath, and modules.
-    void getTriggerReport(TriggerReport& rep) const;
-
     /// Clears counters used by trigger report.
     void clearCounters();
 
@@ -216,6 +212,10 @@ namespace edm {
 
     void doErrorStuff();
 
+    void beginProcessBlock(bool& beginProcessBlockSucceeded);
+    void inputProcessBlocks();
+    void endProcessBlock(bool cleaningUpAfterException, bool beginProcessBlockSucceeded);
+
     void beginRun(ProcessHistoryID const& phid,
                   RunNumber_t run,
                   bool& globalBeginSucceeded,
@@ -242,6 +242,8 @@ namespace edm {
     std::pair<ProcessHistoryID, RunNumber_t> readAndMergeRun();
     void readLuminosityBlock(LuminosityBlockProcessingStatus&);
     int readAndMergeLumi(LuminosityBlockProcessingStatus&);
+    using ProcessBlockType = PrincipalCache::ProcessBlockType;
+    void writeProcessBlockAsync(WaitingTaskHolder, ProcessBlockType);
     void writeRunAsync(WaitingTaskHolder,
                        ProcessHistoryID const& phid,
                        RunNumber_t run,

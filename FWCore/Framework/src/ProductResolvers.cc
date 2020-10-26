@@ -4,11 +4,13 @@
 #include "Worker.h"
 #include "UnscheduledAuxiliary.h"
 #include "UnscheduledConfigurator.h"
+#include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/interface/MergeableRunProductMetadata.h"
 #include "FWCore/Framework/interface/Principal.h"
-#include "FWCore/Framework/interface/ProductDeletedException.h"
+#include "FWCore/Framework/src/ProductDeletedException.h"
 #include "FWCore/Framework/interface/SharedResourcesAcquirer.h"
 #include "FWCore/Framework/interface/DelayedReader.h"
+#include "FWCore/Framework/src/TransitionInfoTypes.h"
 #include "DataFormats/Provenance/interface/ProductProvenanceRetriever.h"
 #include "DataFormats/Provenance/interface/BranchKey.h"
 #include "DataFormats/Provenance/interface/ParentageRegistry.h"
@@ -163,17 +165,17 @@ namespace edm {
                                                                         ModuleCallingContext const* mcc) const {
     return resolveProductImpl<true>([this, &principal, mcc]() {
       auto branchType = principal.branchType();
-      if (branchType != InEvent) {
+      if (branchType == InLumi || branchType == InRun) {
         //delayed get has not been allowed with Run or Lumis
         // The file may already be closed so the reader is invalid
         return;
       }
-      if (mcc and (branchType == InEvent) and aux_) {
+      if (mcc and (branchType == InEvent || branchType == InProcess) and aux_) {
         aux_->preModuleDelayedGetSignal_.emit(*(mcc->getStreamContext()), *mcc);
       }
 
       auto sentry(make_sentry(mcc, [this, branchType](ModuleCallingContext const* iContext) {
-        if (branchType == InEvent and aux_) {
+        if ((branchType == InEvent || branchType == InProcess) and aux_) {
           aux_->postModuleDelayedGetSignal_.emit(*(iContext->getStreamContext()), *iContext);
         }
       }));
@@ -382,24 +384,24 @@ namespace edm {
     assert(worker_ != nullptr);
   }
 
-  ProductResolverBase::Resolution UnscheduledProductResolver::resolveProduct_(Principal const& principal,
+  ProductResolverBase::Resolution UnscheduledProductResolver::resolveProduct_(Principal const&,
                                                                               bool skipCurrentProcess,
                                                                               SharedResourcesAcquirer* sra,
                                                                               ModuleCallingContext const* mcc) const {
     if (!skipCurrentProcess and worker_) {
-      return resolveProductImpl<true>([&principal, this, sra, mcc]() {
+      return resolveProductImpl<true>([this, sra, mcc]() {
         try {
-          auto const& event = static_cast<EventPrincipal const&>(principal);
           ParentContext parentContext(mcc);
           aux_->preModuleDelayedGetSignal_.emit(*(mcc->getStreamContext()), *mcc);
 
-          auto workCall = [this, &event, &parentContext, mcc]() {
+          auto workCall = [this, &parentContext, mcc]() {
             auto sentry(make_sentry(mcc, [this](ModuleCallingContext const* iContext) {
               aux_->postModuleDelayedGetSignal_.emit(*(iContext->getStreamContext()), *iContext);
             }));
 
+            EventTransitionInfo const& info = aux_->eventTransitionInfo();
             worker_->doWork<OccurrenceTraits<EventPrincipal, BranchActionStreamBegin> >(
-                event, *(aux_->eventSetup()), event.streamID(), parentContext, mcc->getStreamContext());
+                info, info.principal().streamID(), parentContext, mcc->getStreamContext());
           };
 
           if (sra) {
@@ -452,11 +454,11 @@ namespace edm {
         }
         waitingTasks_.doneWaiting(nullptr);
       });
-      auto const& event = static_cast<EventPrincipal const&>(principal);
-      ParentContext parentContext(mcc);
 
+      ParentContext parentContext(mcc);
+      EventTransitionInfo const& info = aux_->eventTransitionInfo();
       worker_->doWorkAsync<OccurrenceTraits<EventPrincipal, BranchActionStreamBegin> >(
-          t, event, *(aux_->eventSetup()), token, event.streamID(), parentContext, mcc->getStreamContext());
+          t, info, token, info.principal().streamID(), parentContext, mcc->getStreamContext());
     }
   }
 

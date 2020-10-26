@@ -1,6 +1,6 @@
 #include "DQM/SiStripMonitorSummary/interface/SiStripBaseCondObjDQM.h"
 #include "DataFormats/SiStripDetId/interface/StripSubdetector.h"
-#include "DataFormats/SiStripDetId/interface/SiStripSubStructure.h"
+#include "DataFormats/TrackerCommon/interface/SiStripSubStructure.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 
 #include "TCanvas.h"
@@ -85,7 +85,7 @@ void SiStripBaseCondObjDQM::analysis(const edm::EventSetup &eSetup_) {
       constexpr unsigned int kSLen = 128;
       char sRun[kSLen];
       snprintf(sRun, kSLen, "_Run_%d", runNumber_);
-      filename.insert(filename.find("."), sRun);
+      filename.insert(filename.find('.'), sRun);
 
       saveTkMap(filename, minValue, maxValue);
     }

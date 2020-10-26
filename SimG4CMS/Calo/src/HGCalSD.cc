@@ -21,9 +21,10 @@
 #include "G4VProcess.hh"
 #include "G4Trap.hh"
 
-#include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
+#include <memory>
 
 //#define EDM_ML_DEBUG
 
@@ -207,9 +208,9 @@ void HGCalSD::update(const BeginOfJob* job) {
                                << mouseBite;
 #endif
 
-    numberingScheme_.reset(new HGCalNumberingScheme(*hgcons_, mydet_, nameX_));
+    numberingScheme_ = std::make_unique<HGCalNumberingScheme>(*hgcons_, mydet_, nameX_);
     if (rejectMB_)
-      mouseBite_.reset(new HGCMouseBite(*hgcons_, angles_, mouseBiteCut_, waferRot_));
+      mouseBite_ = std::make_unique<HGCMouseBite>(*hgcons_, angles_, mouseBiteCut_, waferRot_);
   } else {
     throw cms::Exception("Unknown", "HGCalSD") << "Cannot find HGCalDDDConstants for " << nameX_ << "\n";
   }
@@ -224,9 +225,13 @@ bool HGCalSD::filterHit(CaloG4Hit* aHit, double time) {
 uint32_t HGCalSD::setDetUnitId(int layer, int module, int cell, int iz, G4ThreeVector& pos) {
   uint32_t id = numberingScheme_ ? numberingScheme_->getUnitID(layer, module, cell, iz, pos, weight_) : 0;
   if (cornerMinMask_ > 2) {
-    if (hgcons_->maskCell(DetId(id), cornerMinMask_))
+    if (hgcons_->maskCell(DetId(id), cornerMinMask_)) {
       id = 0;
+      ignoreRejection();
+    }
   }
+  if ((geom_mode_ == HGCalGeometryMode::Hexagon8File) || (id == 0))
+    ignoreRejection();
   return id;
 }
 

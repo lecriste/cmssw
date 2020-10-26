@@ -1,5 +1,5 @@
-#ifndef DETECTOR_DESCRIPTION_DD_COMPACT_VIEW_H
-#define DETECTOR_DESCRIPTION_DD_COMPACT_VIEW_H
+#ifndef DetectorDescription_DDCMS_DDCompactView_h
+#define DetectorDescription_DDCMS_DDCompactView_h
 
 // -*- C++ -*-
 //
@@ -21,10 +21,11 @@
 //
 //
 
-#include "DetectorDescription/DDCMS/interface/DDSpecParRegistry.h"
 #include "DetectorDescription/DDCMS/interface/DDDetector.h"
+#include <DD4hep/SpecParRegistry.h>
 
 namespace cms {
+  using DDSpecParRegistry = dd4hep::SpecParRegistry;
 
   class DDCompactView {
   public:
@@ -33,6 +34,11 @@ namespace cms {
     DDSpecParRegistry const& specpars() const { return m_det.specpars(); }
     template <typename T>
     std::vector<T> getVector(const std::string&) const;
+
+    template <typename T>
+    T const& get(const std::string&) const;
+    template <typename T>
+    T const& get(const std::string&, const std::string&) const;
 
   private:
     const cms::DDDetector& m_det;

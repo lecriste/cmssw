@@ -24,7 +24,7 @@ public:
 
 private:
   // parameters
-  const bool useTimingQuality_;
+  const bool useTimingQuality_, useTimingAverage_;
   const float timingQualityThreshold_;
 
   // inputs
@@ -36,6 +36,7 @@ DEFINE_FWK_MODULE(PFTICLProducer);
 
 PFTICLProducer::PFTICLProducer(const edm::ParameterSet& conf)
     : useTimingQuality_(conf.existsAs<edm::InputTag>("trackTimeQualityMap")),
+      useTimingAverage_(conf.existsAs<bool>("useTimingAverage") ? conf.getParameter<bool>("useTimingAverage") : false),
       timingQualityThreshold_(useTimingQuality_ ? conf.getParameter<double>("timingQualityThreshold") : -99.),
       ticl_candidates_(consumes<edm::View<TICLCandidate>>(conf.getParameter<edm::InputTag>("ticlCandidateSrc"))),
       srcTrackTime_(consumes<edm::ValueMap<float>>(conf.getParameter<edm::InputTag>("trackTimeValueMap"))),
@@ -54,6 +55,7 @@ void PFTICLProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<edm::InputTag>("trackTimeErrorMap", edm::InputTag("tofPID:sigmat0"));
   desc.add<edm::InputTag>("trackTimeQualityMap", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
   desc.add<double>("timingQualityThreshold", 0.5);
+  desc.add<bool>("useTimingAverage", false);
   descriptions.add("pfTICLProducer", desc);
 }
 
@@ -108,11 +110,11 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
       candidate.setTrackRef(ref);
     }
 
-    // HGCAL as default values
+    // HGCAL timing as default values
     auto time = ticl_cand.time();
     auto timeE = ticl_cand.timeError();
-    // Compute weighted average between HGCAL and MTD timing if available
-    if (candidate.charge()) {
+
+    if (candidate.charge()) { // Check MTD timing availability
       const bool assocQuality = (*trackTimeQualH)[candidate.trackRef()] > timingQualityThreshold_;
       if (assocQuality) {
         const auto timeHGC = time;
@@ -120,10 +122,12 @@ void PFTICLProducer::produce(edm::StreamID, edm::Event& evt, const edm::EventSet
         const auto timeMTD = (*trackTimeH)[candidate.trackRef()];
         const auto timeEMTD = (*trackTimeErrH)[candidate.trackRef()];
 
-        if (timeEMTD>0 && timeEHGC>0) {
+        if (useTimingAverage_ && (timeEMTD>0 && timeEHGC>0)) {
+          // Compute weighted average between HGCAL and MTD timing
           timeE = sqrt(1 / (pow(timeEHGC,-2) + pow(timeEMTD,-2)));
           time = (timeHGC/pow(timeEHGC,2) + timeMTD/pow(timeEMTD,2)) * pow(timeE,2);
         } else if (timeEMTD>0 && timeEHGC<0) {
+          // Passthrough MTD timing if HGCAL is not available
           timeE = timeEMTD;
           time = timeMTD;
         }

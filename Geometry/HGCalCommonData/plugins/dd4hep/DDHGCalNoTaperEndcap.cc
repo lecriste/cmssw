@@ -7,10 +7,7 @@
 //#define EDM_ML_DEBUG
 using namespace geant_units::operators;
 
-static long algorithm(dd4hep::Detector& /* description */,
-                      cms::DDParsingContext& ctxt,
-                      xml_h e,
-                      dd4hep::SensitiveDetector& /* sens */) {
+static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext& ctxt, xml_h e) {
   cms::DDNamespace ns(ctxt, e, true);
   cms::DDAlgoArguments args(ctxt, e);
   std::string motherName = args.parentName();
@@ -23,8 +20,11 @@ static long algorithm(dd4hep::Detector& /* description */,
   auto const& m_startCopyNo = args.value<int>("startCopyNo");      // Start copy Number
   auto const& m_incrCopyNo = args.value<int>("incrCopyNo");        // Increment copy Number
   auto const& m_childName = args.value<std::string>("ChildName");  // Children name
-
 #ifdef EDM_ML_DEBUG
+  edm::LogVerbatim("HGCalGeom") << "Tilt Angle " << m_tiltAngle << " R " << m_rMin << ":" << m_rMax << " Offset "
+                                << m_zoffset << ":" << m_xyoffset << " Copy " << m_startCopyNo << ":" << m_incrCopyNo
+                                << " Child " << m_childName;
+
   edm::LogVerbatim("HGCalGeom") << "DDHGCalNoTaperEndcap: NameSpace " << ns.name() << "\tParent " << args.parentName();
 #endif
 
@@ -37,6 +37,9 @@ static long algorithm(dd4hep::Detector& /* description */,
   for (int i = 0; i < 4; ++i) {
     int xQuadrant = ix[i];
     int yQuadrant = iy[i];
+#ifdef EDM_ML_DEBUG
+    edm::LogVerbatim("HGCalGeom") << "Create quarter " << xQuadrant << ":" << yQuadrant;
+#endif
     double tiltAngle = m_tiltAngle;
     double xphi = xQuadrant * tiltAngle;
     double yphi = yQuadrant * tiltAngle;
@@ -108,7 +111,7 @@ static long algorithm(dd4hep::Detector& /* description */,
 #endif
   }
 
-  return 1;
+  return cms::s_executed;
 }
 
 // first argument is the type from the xml file

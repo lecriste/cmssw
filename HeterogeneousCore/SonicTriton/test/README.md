@@ -1,27 +1,46 @@
 # SONIC TritonClient tests
 
-A test producer `TritonImageProducer` is available.
-It generates an arbitrary image for ResNet50 inference and prints the resulting classifications.
+Test producers `TritonImageProducer` and `TritonGraphProducer` are available.
+They generate arbitrary inputs for inference (with ResNet50 or Graph Attention Network, respectively) and print the resulting output.
 
-To run the tests, a local Triton server can be started using Docker.
-(This may require superuser permission.)
+To run the tests, a local Triton server can be started using Singularity (default, should not require superuser permission)
+or Docker (may require superuser permission).
+The server can utilize the local CPU (support for AVX instructions required) or a local Nvidia GPU, if one is available.
+The default local server address is `0.0.0.0`.
 
 First, the relevant data should be downloaded from Nvidia:
 ```
 ./fetch_model.sh
 ```
 
-Execute this Docker command to launch the local server (corresponding to the client version v1.12.0):
+The server can be managed with the `triton` script (using Singularity with CPU by default):
 ```
-docker run -d --rm --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 -p8000:8000 -p8001:8001 -p8002:8002 -v${CMSSW_BASE}/src/HeterogeneousCore/SonicTriton/data/models:/models nvcr.io/nvidia/tritonserver:20.03-py3 trtserver --model-repository=/models
+./triton start
+[run test commands]
+./triton stop
 ```
 
-If the machine has Nvidia GPUs, the flag `--gpus all` can be added to the command.
-Otherwise, the server will perform inference using the CPU (slower).
+The script has the following options:
+* `-d`: use Docker instead of Singularity
+* `-g`: use GPU instead of CPU
+* `-n`: name of container instance (default: triton_server_instance)
+* `-v`: (verbose) start: activate server debugging info; stop: keep server logs
+* `-w`: maximum time to wait for server to start (default: 60 seconds)
+* `-h`: print help message and exit
 
-The default local server address is `0.0.0.0`.
+## Test commands
 
-Run the test:
+Run the image test:
 ```
-cmsRun imageTest.py maxEvents=1
+cmsRun tritonTest_cfg.py maxEvents=1 producer=TritonImageProducer
 ```
+
+Run the graph test:
+```
+cmsRun tritonTest_cfg.py maxEvents=1 producer=TritonGraphProducer
+```
+
+## Caveats
+
+* Local CPU server requires support for AVX instructions.
+* Multiple users cannot run servers on the same GPU (e.g. on a shared node).

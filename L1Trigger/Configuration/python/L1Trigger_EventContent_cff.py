@@ -73,6 +73,7 @@ L1TriggerFEVTDEBUG = cms.PSet(
         'keep *_simCaloStage2Digis_*_*',
         'keep *_simGmtDigis_*_*',
         "keep *_simBmtfDigis_*_*",
+        "keep *_simKBmtfDigis_*_*",
         "keep *_simOmtfDigis_*_*",
         "keep *_simEmtfDigis_*_*",
         "keep *_simGmtStage2Digis_*_*",
@@ -196,6 +197,8 @@ def _appendPhase2Digis(obj):
         'keep *_l1PFMetCalo_*_*',
         'keep *_l1PFMetPF_*_*',
         'keep *_l1PFMetPuppi_*_*',
+        'keep *_TTStubsFromPhase2TrackerDigis_*_*',
+        'keep *_TTClustersFromPhase2TrackerDigis_*_*',
         'keep *_TTTracksFromExtendedTrackletEmulation_*_*',
         'keep *_TTTracksFromTrackletEmulation_*_*',
         ]

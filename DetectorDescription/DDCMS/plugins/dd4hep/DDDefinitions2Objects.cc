@@ -25,9 +25,9 @@
 #include <iostream>
 #include <iomanip>
 #include <map>
+#include <vector>
+#include <unordered_map>
 #include <utility>
-#include "tbb/concurrent_unordered_map.h"
-#include "tbb/concurrent_vector.h"
 
 using namespace std;
 using namespace dd4hep;
@@ -40,7 +40,6 @@ namespace dd4hep {
 
     atomic<UInt_t> unique_mat_id = 0xAFFEFEED;
 
-    class disabled_algo;
     class include_constants;
     class include_load;
     class include_unload;
@@ -50,8 +49,9 @@ namespace dd4hep {
     class DDLConstant;
 
     struct DDRegistry {
-      tbb::concurrent_vector<xml::Document> includes;
-      tbb::concurrent_unordered_map<std::string, std::string> unresolvedConst, allConst, originalConst;
+      std::vector<xml::Document> includes;
+      std::unordered_map<std::string, std::string> unresolvedConst;
+      std::unordered_map<std::string, std::string> originalConst;
     };
 
     class MaterialSection;
@@ -97,12 +97,10 @@ namespace dd4hep {
     class DDLVector;
 
     class SpecParSection;
-    class SpecPar;
+    class DDLSpecPar;
     class PartSelector;
     class Parameter;
 
-    class vissection;
-    class vis;
     class debug;
   }  // namespace
 
@@ -122,8 +120,6 @@ namespace dd4hep {
   void Converter<debug>::operator()(xml_h element) const;
   template <>
   void Converter<print_xml_doc>::operator()(xml_h element) const;
-  template <>
-  void Converter<disabled_algo>::operator()(xml_h element) const;
 
   /// Converter for <ConstantsSection/> tags
   template <>
@@ -132,13 +128,6 @@ namespace dd4hep {
   void Converter<DDLConstant>::operator()(xml_h element) const;
   template <>
   void Converter<DDRegistry>::operator()(xml_h element) const;
-
-  /// Converter for <VisSection/> tags
-  template <>
-  void Converter<vissection>::operator()(xml_h element) const;
-  /// Convert compact visualization attributes
-  template <>
-  void Converter<vis>::operator()(xml_h element) const;
 
   /// Converter for <MaterialSection/> tags
   template <>
@@ -186,7 +175,7 @@ namespace dd4hep {
   template <>
   void Converter<SpecParSection>::operator()(xml_h element) const;
   template <>
-  void Converter<SpecPar>::operator()(xml_h element) const;
+  void Converter<DDLSpecPar>::operator()(xml_h element) const;
   template <>
   void Converter<PartSelector>::operator()(xml_h element) const;
   template <>
@@ -279,13 +268,6 @@ void Converter<ConstantsSection>::operator()(xml_h element) const {
   xml_coll_t(element, DD_CMU(Vector)).for_each(Converter<DDLVector>(description, context, optional));
 }
 
-/// Converter for <VisSection/> tags
-template <>
-void Converter<vissection>::operator()(xml_h element) const {
-  cms::DDNamespace ns(_param<cms::DDParsingContext>(), element);
-  xml_coll_t(element, DD_CMU(vis)).for_each(Converter<vis>(description, ns.context(), optional));
-}
-
 /// Converter for <MaterialSection/> tags
 template <>
 void Converter<MaterialSection>::operator()(xml_h element) const {
@@ -319,11 +301,11 @@ void Converter<PosPartSection>::operator()(xml_h element) const {
 template <>
 void Converter<SpecParSection>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>(), element);
-  xml_coll_t(element, DD_CMU(SpecPar)).for_each(Converter<SpecPar>(description, ns.context(), optional));
+  xml_coll_t(element, DD_CMU(SpecPar)).for_each(Converter<DDLSpecPar>(description, ns.context(), optional));
 }
 
 template <>
-void Converter<SpecPar>::operator()(xml_h element) const {
+void Converter<DDLSpecPar>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>(), element);
   xml_coll_t(element, DD_CMU(PartSelector)).for_each(Converter<PartSelector>(description, ns.context(), optional));
   xml_coll_t(element, DD_CMU(Parameter)).for_each(Converter<Parameter>(description, ns.context(), optional));
@@ -336,18 +318,11 @@ void Converter<LogicalPartSection>::operator()(xml_h element) const {
   xml_coll_t(element, DD_CMU(LogicalPart)).for_each(Converter<DDLLogicalPart>(description, ns.context(), optional));
 }
 
-template <>
-void Converter<disabled_algo>::operator()(xml_h element) const {
-  cms::DDParsingContext* c = _param<cms::DDParsingContext>();
-  c->disabledAlgs.emplace_back(element.attr<string>(_U(name)));
-}
-
 /// Generic converter for  <SolidSection/> tags
 template <>
 void Converter<SolidSection>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>(), element);
   for (xml_coll_t solid(element, _U(star)); solid; ++solid) {
-    string tag = solid.tag();
     using cms::hash;
     switch (hash(solid.tag())) {
       case hash("Box"):
@@ -411,7 +386,8 @@ void Converter<SolidSection>::operator()(xml_h element) const {
         Converter<DDLShapeless>(description, ns.context(), optional)(solid);
         break;
       default:
-        throw std::runtime_error("Request to process unknown shape '" + xml_dim_t(solid).nameStr() + "' [" + tag + "]");
+        throw std::runtime_error("Request to process unknown shape '" + xml_dim_t(solid).nameStr() + "' [" +
+                                 solid.tag() + "]");
         break;
     }
   }
@@ -437,7 +413,6 @@ void Converter<DDLConstant>::operator()(xml_h element) const {
   if (idx == string::npos || typ == "string") {
     try {
       ns.addConstant(nam, val, typ);
-      res->allConst[real] = val;
       res->originalConst[real] = val;
     } catch (const exception& e) {
       printout(INFO,
@@ -463,62 +438,8 @@ void Converter<DDLConstant>::operator()(xml_h element) const {
   }
   printout(
       ns.context()->debug_constants ? ALWAYS : DEBUG, "Constant", "Unresolved: %s -> %s", real.c_str(), val.c_str());
-  res->allConst[real] = val;
   res->originalConst[real] = val;
   res->unresolvedConst[real] = val;
-}
-
-/** Convert compact visualization attribute to Detector visualization attribute
- *
- *  <vis name="SiVertexBarrelModuleVis"
- *       alpha="1.0" r="1.0" g="0.75" b="0.76"
- *       drawingStyle="wireframe"
- *       showDaughters="false"
- *       visible="true"/>
- */
-template <>
-void Converter<vis>::operator()(xml_h e) const {
-  cms::DDNamespace ns(_param<cms::DDParsingContext>());
-  VisAttr attr(e.attr<string>(_U(name)));
-  float red = e.hasAttr(_U(r)) ? e.attr<float>(_U(r)) : 1.0f;
-  float green = e.hasAttr(_U(g)) ? e.attr<float>(_U(g)) : 1.0f;
-  float blue = e.hasAttr(_U(b)) ? e.attr<float>(_U(b)) : 1.0f;
-
-  printout(ns.context()->debug_visattr ? ALWAYS : DEBUG,
-           "Compact",
-           "++ Converting VisAttr  structure: %-16s. R=%.3f G=%.3f B=%.3f",
-           attr.name(),
-           red,
-           green,
-           blue);
-  attr.setColor(red, green, blue);
-  if (e.hasAttr(_U(alpha)))
-    attr.setAlpha(e.attr<float>(_U(alpha)));
-  if (e.hasAttr(_U(visible)))
-    attr.setVisible(e.attr<bool>(_U(visible)));
-  if (e.hasAttr(_U(lineStyle))) {
-    string ls = e.attr<string>(_U(lineStyle));
-    if (ls == "unbroken")
-      attr.setLineStyle(VisAttr::SOLID);
-    else if (ls == "broken")
-      attr.setLineStyle(VisAttr::DASHED);
-  } else {
-    attr.setLineStyle(VisAttr::SOLID);
-  }
-  if (e.hasAttr(_U(drawingStyle))) {
-    string ds = e.attr<string>(_U(drawingStyle));
-    if (ds == "wireframe")
-      attr.setDrawingStyle(VisAttr::WIREFRAME);
-    else if (ds == "solid")
-      attr.setDrawingStyle(VisAttr::SOLID);
-  } else {
-    attr.setDrawingStyle(VisAttr::SOLID);
-  }
-  if (e.hasAttr(_U(showDaughters)))
-    attr.setShowDaughters(e.attr<bool>(_U(showDaughters)));
-  else
-    attr.setShowDaughters(true);
-  description.addVisAttribute(attr);
 }
 
 /// Converter for <DDLElementaryMaterial/> tags
@@ -577,7 +498,7 @@ void Converter<DDLElementaryMaterial>::operator()(xml_h element) const {
                "+++ Compared to XML values: Atomic weight %g, Atomic number %u",
                atomicWeight,
                atomicNumber);
-      static const double weightTolerance = 1.0e-6;
+      static constexpr double const weightTolerance = 1.0e-6;
       if (atomicNumber != elt->Z() ||
           (std::abs(atomicWeight - elt->A()) > (weightTolerance * (atomicWeight + elt->A()))))
         newMatDef = true;
@@ -937,7 +858,7 @@ template <>
 void Converter<PartSelector>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>());
   cms::DDParsingContext* const context = ns.context();
-  DDSpecParRegistry& registry = *context->description.load()->extension<DDSpecParRegistry>();
+  dd4hep::SpecParRegistry& registry = *context->description.extension<dd4hep::SpecParRegistry>();
   xml_dim_t e(element);
   xml_dim_t specPar = e.parent();
   string specParName = specPar.attr<string>(_U(name));
@@ -947,7 +868,12 @@ void Converter<PartSelector>::operator()(xml_h element) const {
            "+++ PartSelector for %s path: %s",
            specParName.c_str(),
            path.c_str());
-  registry.specpars[specParName].paths.emplace_back(path);
+
+  size_t pos = std::string::npos;
+  if ((pos = path.find("//.*:")) != std::string::npos) {
+    path.erase(pos + 2, 3);
+  }
+  registry.specpars[specParName].paths.emplace_back(std::move(path));
 }
 
 /// Converter for <Parameter/> tags
@@ -955,7 +881,7 @@ template <>
 void Converter<Parameter>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>());
   cms::DDParsingContext* const context = ns.context();
-  DDSpecParRegistry& registry = *context->description.load()->extension<DDSpecParRegistry>();
+  dd4hep::SpecParRegistry& registry = *context->description.extension<dd4hep::SpecParRegistry>();
   xml_dim_t e(element);
   xml_dim_t specPar = e.parent();
   xml_dim_t specParSect = specPar.parent();
@@ -976,7 +902,7 @@ void Converter<Parameter>::operator()(xml_h element) const {
 
   size_t idx = value.find('[');
   if (idx == string::npos || type == "string") {
-    registry.specpars[specParName].spars[name].emplace_back(value);
+    registry.specpars[specParName].spars[name].emplace_back(std::move(value));
     return;
   }
 
@@ -997,8 +923,8 @@ void Converter<Parameter>::operator()(xml_h element) const {
   for (idx = v.find('[', 0); idx != string::npos; idx = v.find('[', idx + 1)) {
     idq = v.find(']', idx + 1);
     rep = v.substr(idx + 1, idq - idx - 1);
-    auto r = ns.context()->description.load()->constants().find(rep);
-    if (r != ns.context()->description.load()->constants().end()) {
+    auto r = ns.context()->description.constants().find(rep);
+    if (r != ns.context()->description.constants().end()) {
       rep = "(" + r->second->type + ")";
       v.replace(idx, idq - idx + 1, rep);
     }
@@ -1041,12 +967,12 @@ static void convert_boolean(cms::DDParsingContext* context, xml_h element) {
 
   if (solids[0].isValid() && solids[1].isValid()) {
     Transform3D trafo;
-    Converter<DDLTransform3D>(*context->description, context, &trafo)(element);
+    Converter<DDLTransform3D>(context->description, context, &trafo)(element);
     boolean = TYPE(solids[0], solids[1], trafo);
   } else {
     // Register it for later processing
     Transform3D trafo;
-    Converter<DDLTransform3D>(*context->description, context, &trafo)(element);
+    Converter<DDLTransform3D>(context->description, context, &trafo)(element);
     ns.context()->unresolvedShapes.emplace(nam,
                                            DDParsingContext::BooleanShape<TYPE>(solidName[0], solidName[1], trafo));
   }
@@ -1643,26 +1569,15 @@ void Converter<DDLAlgorithm>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>());
   xml_dim_t e(element);
   string name = e.nameStr();
-  for (auto const& i : ns.context()->disabledAlgs) {
-    if (name == i) {
-      //  if(ns.context()->disabledAlgs.find( name ) != ns.context()->disabledAlgs.end()) {
-      printout(INFO, "DD4CMS", "+++ Skip disabled algorithms: %s", name.c_str());
-      return;
-    }
-  }
-
   size_t idx;
-  SensitiveDetector sd;
   string type = "DDCMS_" + ns.realName(name);
   while ((idx = type.find(NAMESPACE_SEP)) != string::npos)
     type[idx] = '_';
 
-  // SensitiveDetector and Segmentation currently are undefined. Let's keep it like this
-  // until we found something better.....
   printout(
       ns.context()->debug_algorithms ? ALWAYS : DEBUG, "DD4CMS", "+++ Start executing algorithm %s....", type.c_str());
 
-  long ret = PluginService::Create<long>(type, &description, ns.context(), &element, &sd);
+  long ret = PluginService::Create<long>(type, &description, ns.context(), &element);
   if (ret == s_executed) {
     printout(ns.context()->debug_algorithms ? ALWAYS : DEBUG,
              "DD4CMS",
@@ -1702,8 +1617,8 @@ namespace {
     return output;
   }
 
-  tbb::concurrent_vector<double> splitNumeric(const string& str, const string& delims = ",") {
-    tbb::concurrent_vector<double> output;
+  std::vector<double> splitNumeric(const string& str, const string& delims = ",") {
+    std::vector<double> output;
 
     for_each_token(cbegin(str), cend(str), cbegin(delims), cend(delims), [&output](auto first, auto second) {
       if (first != second) {
@@ -1724,7 +1639,7 @@ template <>
 void Converter<DDLVector>::operator()(xml_h element) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>());
   cms::DDParsingContext* const context = ns.context();
-  DDVectorsMap* registry = context->description.load()->extension<DDVectorsMap>();
+  DDVectorsMap* registry = context->description.extension<DDVectorsMap>();
   xml_dim_t e(element);
   string name = ns.prepend(e.nameStr());
   string type = ns.attr<string>(e, _U(type));
@@ -1740,8 +1655,10 @@ void Converter<DDLVector>::operator()(xml_h element) const {
            nEntries.c_str(),
            val.c_str());
   try {
-    tbb::concurrent_vector<double> results = splitNumeric(val);
-    registry->insert({name, results});
+    std::vector<double> results = splitNumeric(val);
+    registry->insert(
+        {name,
+         results});  //tbb::concurrent_vector<double, tbb::cache_aligned_allocator<double>>(results.begin(), results.end())});
   } catch (const exception& e) {
     printout(INFO,
              "DD4CMS",
@@ -1760,8 +1677,6 @@ void Converter<DDLVector>::operator()(xml_h element) const {
 template <>
 void Converter<debug>::operator()(xml_h dbg) const {
   cms::DDNamespace ns(_param<cms::DDParsingContext>());
-  if (dbg.hasChild(DD_CMU(debug_visattr)))
-    ns.setContext()->debug_visattr = true;
   if (dbg.hasChild(DD_CMU(debug_constants)))
     ns.setContext()->debug_constants = true;
   if (dbg.hasChild(DD_CMU(debug_materials)))
@@ -1793,11 +1708,12 @@ void Converter<DDRegistry>::operator()(xml_h /* element */) const {
 
   printout(context->debug_constants ? ALWAYS : DEBUG,
            "DD4CMS",
-           "+++ RESOLVING %ld unknown constants.....",
-           res->unresolvedConst.size());
+           "+++ RESOLVING %ld unknown constants..... (out of %ld)",
+           res->unresolvedConst.size(),
+           res->originalConst.size());
 
   while (!res->unresolvedConst.empty()) {
-    for (auto i : res->unresolvedConst) {
+    for (auto& i : res->unresolvedConst) {
       const string& n = i.first;
       string rep;
       string& v = i.second;
@@ -1805,8 +1721,8 @@ void Converter<DDRegistry>::operator()(xml_h /* element */) const {
       for (idx = v.find('[', 0); idx != string::npos; idx = v.find('[', idx + 1)) {
         idq = v.find(']', idx + 1);
         rep = v.substr(idx + 1, idq - idx - 1);
-        auto r = res->allConst.find(rep);
-        if (r != res->allConst.end()) {
+        auto r = res->originalConst.find(rep);
+        if (r != res->originalConst.end()) {
           rep = "(" + (*r).second + ")";
           v.replace(idx, idq - idx + 1, rep);
         }
@@ -1825,7 +1741,7 @@ void Converter<DDRegistry>::operator()(xml_h /* element */) const {
                  n.c_str(),
                  res->originalConst[n].c_str());
         ns.addConstantNS(n, v, "number");
-        res->unresolvedConst.unsafe_erase(n);
+        res->unresolvedConst.erase(n);
         break;
       }
     }
@@ -1839,7 +1755,6 @@ void Converter<DDRegistry>::operator()(xml_h /* element */) const {
   }
   res->unresolvedConst.clear();
   res->originalConst.clear();
-  res->allConst.clear();
 }
 
 template <>
@@ -1853,208 +1768,212 @@ void Converter<print_xml_doc>::operator()(xml_h element) const {
 
 /// Converter for <DDDefinition/> tags
 static long load_dddefinition(Detector& det, xml_h element) {
-  cms::DDParsingContext context(&det);
-  cms::DDNamespace ns(context);
-  ns.addConstantNS("world_x", "101*m", "number");
-  ns.addConstantNS("world_y", "101*m", "number");
-  ns.addConstantNS("world_z", "450*m", "number");
-  ns.addConstantNS("Air", "materials:Air", "string");
-  ns.addConstantNS("Vacuum", "materials:Vacuum", "string");
-  ns.addConstantNS("fm", "1e-12*m", "number");
-  ns.addConstantNS("mum", "1e-6*m", "number");
-
   xml_elt_t dddef(element);
-  string fname = xml::DocumentHandler::system_path(element);
-  bool open_geometry = dddef.hasChild(DD_CMU(open_geometry)) ? dddef.child(DD_CMU(open_geometry)) : true;
-  bool close_geometry = dddef.hasChild(DD_CMU(close_geometry)) ? dddef.hasChild(DD_CMU(close_geometry)) : true;
+  if (dddef) {
+    cms::DDParsingContext context(det);
+    cms::DDNamespace ns(context);
+    ns.addConstantNS("world_x", "101*m", "number");
+    ns.addConstantNS("world_y", "101*m", "number");
+    ns.addConstantNS("world_z", "450*m", "number");
+    ns.addConstantNS("Air", "materials:Air", "string");
+    ns.addConstantNS("Vacuum", "materials:Vacuum", "string");
+    ns.addConstantNS("fm", "1e-12*m", "number");
+    ns.addConstantNS("mum", "1e-6*m", "number");
 
-  xml_coll_t(dddef, _U(debug)).for_each(Converter<debug>(det, &context));
+    string fname = xml::DocumentHandler::system_path(element);
+    bool open_geometry = dddef.hasChild(DD_CMU(open_geometry)) ? dddef.child(DD_CMU(open_geometry)) : true;
+    bool close_geometry = dddef.hasChild(DD_CMU(close_geometry)) ? dddef.hasChild(DD_CMU(close_geometry)) : true;
 
-  // Here we define the order how XML elements are processed.
-  // Be aware of dependencies. This can only defined once.
-  // At the end it is a limitation of DOM....
-  printout(INFO, "DD4CMS", "+++ Processing the CMS detector description %s", fname.c_str());
+    xml_coll_t(dddef, _U(debug)).for_each(Converter<debug>(det, &context));
 
-  xml::Document doc;
-  Converter<print_xml_doc> print_doc(det, &context);
-  try {
-    DDRegistry res;
-    print_doc((doc = dddef.document()).root());
-    xml_coll_t(dddef, DD_CMU(DisabledAlgo)).for_each(Converter<disabled_algo>(det, &context, &res));
-    xml_coll_t(dddef, DD_CMU(ConstantsSection)).for_each(Converter<ConstantsSection>(det, &context, &res));
-    xml_coll_t(dddef, DD_CMU(VisSection)).for_each(Converter<vissection>(det, &context));
-    xml_coll_t(dddef, DD_CMU(RotationSection)).for_each(Converter<RotationSection>(det, &context));
-    xml_coll_t(dddef, DD_CMU(MaterialSection)).for_each(Converter<MaterialSection>(det, &context));
+    // Here we define the order how XML elements are processed.
+    // Be aware of dependencies. This can only defined once.
+    // At the end it is a limitation of DOM....
+    printout(INFO, "DD4CMS", "+++ Processing the CMS detector description %s", fname.c_str());
 
-    xml_coll_t(dddef, DD_CMU(IncludeSection)).for_each(DD_CMU(Include), Converter<include_load>(det, &context, &res));
+    xml::Document doc;
+    Converter<print_xml_doc> print_doc(det, &context);
+    try {
+      DDRegistry res;
+      res.unresolvedConst.reserve(2000);
+      res.originalConst.reserve(6000);
+      print_doc((doc = dddef.document()).root());
+      xml_coll_t(dddef, DD_CMU(ConstantsSection)).for_each(Converter<ConstantsSection>(det, &context, &res));
+      xml_coll_t(dddef, DD_CMU(RotationSection)).for_each(Converter<RotationSection>(det, &context));
+      xml_coll_t(dddef, DD_CMU(MaterialSection)).for_each(Converter<MaterialSection>(det, &context));
 
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      Converter<include_constants>(det, &context, &res)((doc = d).root());
-    }
-    // Before we continue, we have to resolve all constants NOW!
-    Converter<DDRegistry>(det, &context, &res)(dddef);
-    {
-      DDVectorsMap* registry = context.description.load()->extension<DDVectorsMap>();
+      xml_coll_t(dddef, DD_CMU(IncludeSection)).for_each(DD_CMU(Include), Converter<include_load>(det, &context, &res));
 
-      printout(context.debug_constants ? ALWAYS : DEBUG,
-               "DD4CMS",
-               "+++ RESOLVING %ld Vectors.....",
-               context.unresolvedVectors.size());
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        Converter<include_constants>(det, &context, &res)((doc = d).root());
+      }
+      // Before we continue, we have to resolve all constants NOW!
+      Converter<DDRegistry>(det, &context, &res)(dddef);
+      {
+        DDVectorsMap* registry = context.description.extension<DDVectorsMap>();
 
-      while (!context.unresolvedVectors.empty()) {
-        for (auto it = context.unresolvedVectors.begin(); it != context.unresolvedVectors.end();) {
-          auto const& name = it->first;
-          tbb::concurrent_vector<double> result;
-          for (const auto& i : it->second) {
-            result.emplace_back(dd4hep::_toDouble(i));
+        printout(context.debug_constants ? ALWAYS : DEBUG,
+                 "DD4CMS",
+                 "+++ RESOLVING %ld Vectors.....",
+                 context.unresolvedVectors.size());
+
+        while (!context.unresolvedVectors.empty()) {
+          for (auto it = context.unresolvedVectors.begin(); it != context.unresolvedVectors.end();) {
+            std::vector<double> result;
+            for (const auto& i : it->second) {
+              result.emplace_back(dd4hep::_toDouble(i));
+            }
+            registry->insert({it->first, result});
+            // All components are resolved
+            it = context.unresolvedVectors.erase(it);
           }
-          registry->insert({name, result});
-          // All components are resolved
-          it = context.unresolvedVectors.erase(it);
         }
       }
-    }
-    // Now we can process the include files one by one.....
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(MaterialSection)).for_each(Converter<MaterialSection>(det, &context));
-    }
-    {
-      printout(context.debug_materials ? ALWAYS : DEBUG,
-               "DD4CMS",
-               "+++ RESOLVING %ld unknown material constituents.....",
-               context.unresolvedMaterials.size());
+      // Now we can process the include files one by one.....
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(MaterialSection)).for_each(Converter<MaterialSection>(det, &context));
+      }
+      {
+        printout(context.debug_materials ? ALWAYS : DEBUG,
+                 "DD4CMS",
+                 "+++ RESOLVING %ld unknown material constituents.....",
+                 context.unresolvedMaterials.size());
 
-      // Resolve referenced materials (if any)
+        // Resolve referenced materials (if any)
 
-      while (!context.unresolvedMaterials.empty()) {
-        for (auto it = context.unresolvedMaterials.begin(); it != context.unresolvedMaterials.end();) {
-          auto const& name = it->first;
-          std::vector<bool> valid;
+        while (!context.unresolvedMaterials.empty()) {
+          for (auto it = context.unresolvedMaterials.begin(); it != context.unresolvedMaterials.end();) {
+            auto const& name = it->first;
+            std::vector<bool> valid;
 
-          printout(context.debug_materials ? ALWAYS : DEBUG,
-                   "DD4CMS",
-                   "+++ [%06ld] ----------  %s",
-                   context.unresolvedMaterials.size(),
-                   name.c_str());
-
-          auto mat = ns.material(name);
-          for (auto& mit : it->second) {
             printout(context.debug_materials ? ALWAYS : DEBUG,
                      "DD4CMS",
-                     "+++           component  %-48s Fraction: %.6f",
-                     mit.name.c_str(),
-                     mit.fraction);
-            auto fmat = ns.material(mit.name);
-            if (nullptr != fmat.ptr()) {
-              if (mat.ptr()->GetMaterial()->IsMixture()) {
-                valid.emplace_back(true);
-                static_cast<TGeoMixture*>(mat.ptr()->GetMaterial())->AddElement(fmat.ptr()->GetMaterial(), mit.fraction);
+                     "+++ [%06ld] ----------  %s",
+                     context.unresolvedMaterials.size(),
+                     name.c_str());
+
+            auto mat = ns.material(name);
+            for (auto& mit : it->second) {
+              printout(context.debug_materials ? ALWAYS : DEBUG,
+                       "DD4CMS",
+                       "+++           component  %-48s Fraction: %.6f",
+                       mit.name.c_str(),
+                       mit.fraction);
+              auto fmat = ns.material(mit.name);
+              if (nullptr != fmat.ptr()) {
+                if (mat.ptr()->GetMaterial()->IsMixture()) {
+                  valid.emplace_back(true);
+                  static_cast<TGeoMixture*>(mat.ptr()->GetMaterial())
+                      ->AddElement(fmat.ptr()->GetMaterial(), mit.fraction);
+                }
               }
             }
+            // All components are resolved
+            if (valid.size() == it->second.size())
+              it = context.unresolvedMaterials.erase(it);
+            else
+              ++it;
           }
-          // All components are resolved
-          if (valid.size() == it->second.size())
-            it = context.unresolvedMaterials.erase(it);
-          else
-            ++it;
+          // Do it again if there are unresolved
+          // materials left after this pass
         }
-        // Do it again if there are unresolved
-        // materials left after this pass
       }
-    }
-    if (open_geometry) {
-      context.geo_inited = true;
-      det.init();
-      ns.addVolume(det.worldVolume());
-    }
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(RotationSection)).for_each(Converter<RotationSection>(det, &context));
-    }
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(SolidSection)).for_each(Converter<SolidSection>(det, &context));
-    }
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(LogicalPartSection)).for_each(Converter<LogicalPartSection>(det, &context));
-    }
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(Algorithm)).for_each(Converter<DDLAlgorithm>(det, &context));
-    }
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(PosPartSection)).for_each(Converter<PosPartSection>(det, &context));
-    }
-    for (xml::Document d : res.includes) {
-      print_doc((doc = d).root());
-      xml_coll_t(d.root(), DD_CMU(SpecParSection)).for_each(Converter<SpecParSection>(det, &context));
-    }
+      if (open_geometry) {
+        det.init();
+        ns.addVolume(det.worldVolume());
+      }
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(RotationSection)).for_each(Converter<RotationSection>(det, &context));
+      }
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(SolidSection)).for_each(Converter<SolidSection>(det, &context));
+      }
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(LogicalPartSection)).for_each(Converter<LogicalPartSection>(det, &context));
+      }
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(Algorithm)).for_each(Converter<DDLAlgorithm>(det, &context));
+      }
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(PosPartSection)).for_each(Converter<PosPartSection>(det, &context));
+      }
+      for (xml::Document d : res.includes) {
+        print_doc((doc = d).root());
+        xml_coll_t(d.root(), DD_CMU(SpecParSection)).for_each(Converter<SpecParSection>(det, &context));
+      }
 
-    /// Unload all XML files after processing
-    for (xml::Document d : res.includes)
-      Converter<include_unload>(det, &context, &res)(d.root());
+      /// Unload all XML files after processing
+      for (xml::Document d : res.includes)
+        Converter<include_unload>(det, &context, &res)(d.root());
 
-    print_doc((doc = dddef.document()).root());
-    // Now process the actual geometry items
-    xml_coll_t(dddef, DD_CMU(SolidSection)).for_each(Converter<SolidSection>(det, &context));
-    {
-      // Before we continue, we have to resolve all shapes NOW!
-      // Note: This only happens in a legacy DB payloads where
-      // boolean shapes can be defined before thier
-      // component shapes
+      print_doc((doc = dddef.document()).root());
+      // Now process the actual geometry items
+      xml_coll_t(dddef, DD_CMU(SolidSection)).for_each(Converter<SolidSection>(det, &context));
+      {
+        // Before we continue, we have to resolve all shapes NOW!
+        // Note: This only happens in a legacy DB payloads where
+        // boolean shapes can be defined before thier
+        // component shapes
 
-      while (!context.unresolvedShapes.empty()) {
-        for (auto it = context.unresolvedShapes.begin(); it != context.unresolvedShapes.end();) {
-          auto const& name = it->first;
-          auto const& aname = std::visit([](auto&& arg) -> std::string { return arg.firstSolidName; }, it->second);
-          auto const& bname = std::visit([](auto&& arg) -> std::string { return arg.secondSolidName; }, it->second);
+        while (!context.unresolvedShapes.empty()) {
+          for (auto it = context.unresolvedShapes.begin(); it != context.unresolvedShapes.end();) {
+            auto const& name = it->first;
+            auto const& aname = std::visit([](auto&& arg) -> std::string { return arg.firstSolidName; }, it->second);
+            auto const& bname = std::visit([](auto&& arg) -> std::string { return arg.secondSolidName; }, it->second);
 
-          auto const& ait = context.shapes.find(aname);
-          if (ait->second.isValid()) {
-            auto const& bit = context.shapes.find(bname);
-            if (bit->second.isValid()) {
-              dd4hep::Solid shape = std::visit(
-                  [&ait, &bit](auto&& arg) -> dd4hep::Solid { return arg.make(ait->second, bit->second); }, it->second);
-              context.shapes[name] = shape;
-              it = context.unresolvedShapes.erase(it);
+            auto const& ait = context.shapes.find(aname);
+            if (ait->second.isValid()) {
+              auto const& bit = context.shapes.find(bname);
+              if (bit->second.isValid()) {
+                dd4hep::Solid shape =
+                    std::visit([&ait, &bit](auto&& arg) -> dd4hep::Solid { return arg.make(ait->second, bit->second); },
+                               it->second);
+                context.shapes[name] = shape;
+                it = context.unresolvedShapes.erase(it);
+              } else
+                ++it;
             } else
               ++it;
-          } else
-            ++it;
+          }
         }
       }
+      xml_coll_t(dddef, DD_CMU(LogicalPartSection)).for_each(Converter<LogicalPartSection>(det, &context));
+      xml_coll_t(dddef, DD_CMU(Algorithm)).for_each(Converter<DDLAlgorithm>(det, &context));
+      xml_coll_t(dddef, DD_CMU(PosPartSection)).for_each(Converter<PosPartSection>(det, &context));
+      xml_coll_t(dddef, DD_CMU(SpecParSection)).for_each(Converter<SpecParSection>(det, &context));
+    } catch (const exception& e) {
+      printout(ERROR, "DD4CMS", "Exception while processing xml source:%s", doc.uri().c_str());
+      printout(ERROR, "DD4CMS", "----> %s", e.what());
+      throw;
     }
-    xml_coll_t(dddef, DD_CMU(LogicalPartSection)).for_each(Converter<LogicalPartSection>(det, &context));
-    xml_coll_t(dddef, DD_CMU(Algorithm)).for_each(Converter<DDLAlgorithm>(det, &context));
-    xml_coll_t(dddef, DD_CMU(PosPartSection)).for_each(Converter<PosPartSection>(det, &context));
-    xml_coll_t(dddef, DD_CMU(SpecParSection)).for_each(Converter<SpecParSection>(det, &context));
-  } catch (const exception& e) {
-    printout(ERROR, "DD4CMS", "Exception while processing xml source:%s", doc.uri().c_str());
-    printout(ERROR, "DD4CMS", "----> %s", e.what());
-    throw;
-  }
 
-  /// This should be the end of all processing....close the geometry
-  if (close_geometry) {
-    Volume wv = det.worldVolume();
-    Volume geomv = ns.volume("cms:OCMS", false);
-    if (geomv.isValid())
-      wv.placeVolume(geomv, 1);
-    Volume mfv = ns.volume("cmsMagneticField:MAGF", false);
-    if (mfv.isValid())
-      wv.placeVolume(mfv, 1);
-    Volume mfv1 = ns.volume("MagneticFieldVolumes:MAGF", false);
-    if (mfv1.isValid())
-      wv.placeVolume(mfv1, 1);
+    /// This should be the end of all processing....close the geometry
+    if (close_geometry) {
+      Volume wv = det.worldVolume();
+      Volume geomv = ns.volume("cms:OCMS", false);
+      if (geomv.isValid())
+        wv.placeVolume(geomv, 1);
+      Volume mfv = ns.volume("cmsMagneticField:MAGF", false);
+      if (mfv.isValid())
+        wv.placeVolume(mfv, 1);
+      Volume mfv1 = ns.volume("MagneticFieldVolumes:MAGF", false);
+      if (mfv1.isValid())
+        wv.placeVolume(mfv1, 1);
 
-    det.endDocument();
+      det.endDocument();
+    }
+    printout(INFO, "DDDefinition", "+++ Finished processing %s", fname.c_str());
+    return 1;
   }
-  printout(INFO, "DDDefinition", "+++ Finished processing %s", fname.c_str());
-  return 1;
+  except("DDDefinition", "+++ FAILED to process unknown DOM tree [Invalid Handle]");
+  return 0;
 }
 
 // Now declare the factory entry for the plugin mechanism

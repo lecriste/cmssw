@@ -1,17 +1,58 @@
-/** \unpacker for gem
+/** \class GEMRawToDigiModule
+ *  \unpacker for gem
+ *  \based on CSCDigiToRawModule
  *  \author J. Lee - UoS
  */
+
+#include "CondFormats/DataRecord/interface/GEMeMapRcd.h"
+#include "CondFormats/GEMObjects/interface/GEMeMap.h"
+#include "CondFormats/GEMObjects/interface/GEMROMapping.h"
 #include "DataFormats/Common/interface/Handle.h"
+#include "DataFormats/FEDRawData/interface/FEDNumbering.h"
+#include "DataFormats/FEDRawData/interface/FEDRawDataCollection.h"
+#include "DataFormats/GEMDigi/interface/AMC13Event.h"
+#include "DataFormats/GEMDigi/interface/GEMAMC13EventCollection.h"
+#include "DataFormats/GEMDigi/interface/GEMAMCdataCollection.h"
+#include "DataFormats/GEMDigi/interface/GEMDigiCollection.h"
+#include "DataFormats/GEMDigi/interface/GEMGEBdataCollection.h"
+#include "DataFormats/GEMDigi/interface/GEMVfatStatusDigiCollection.h"
+#include "DataFormats/GEMDigi/interface/VFATdata.h"
+#include "EventFilter/GEMRawToDigi/interface/GEMRawToDigi.h"
 #include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/Run.h"
 #include "FWCore/Framework/interface/EventSetup.h"
+#include "FWCore/Framework/interface/Run.h"
+#include "FWCore/Framework/interface/global/EDProducer.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/ESGetToken.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/Transition.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "DataFormats/FEDRawData/interface/FEDNumbering.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 
-#include "EventFilter/GEMRawToDigi/plugins/GEMRawToDigiModule.h"
-#include "FWCore/Framework/interface/ESTransientHandle.h"
+class GEMRawToDigiModule : public edm::global::EDProducer<edm::RunCache<GEMROMapping> > {
+public:
+  /// Constructor
+  GEMRawToDigiModule(const edm::ParameterSet& pset);
+
+  // global::EDProducer
+  std::shared_ptr<GEMROMapping> globalBeginRun(edm::Run const&, edm::EventSetup const&) const override;
+  void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override;
+  void globalEndRun(edm::Run const&, edm::EventSetup const&) const override{};
+
+  // Fill parameters descriptions
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+
+private:
+  edm::EDGetTokenT<FEDRawDataCollection> fed_token;
+  edm::ESGetToken<GEMeMap, GEMeMapRcd> gemEMapToken_;
+  bool useDBEMap_;
+  bool unPackStatusDigis_;
+  std::unique_ptr<GEMRawToDigi> gemRawToDigi_;
+};
+
+#include "FWCore/Framework/interface/MakerMacros.h"
+DEFINE_FWK_MODULE(GEMRawToDigiModule);
 
 using namespace gem;
 
@@ -73,13 +114,14 @@ void GEMRawToDigiModule::produce(edm::StreamID iID, edm::Event& iEvent, edm::Eve
     const FEDRawData& fedData = fed_buffers->FEDData(fedId);
 
     int nWords = fedData.size() / sizeof(uint64_t);
-    LogDebug("GEMRawToDigiModule") << " words " << nWords;
+    LogDebug("GEMRawToDigiModule") << "fedId:" << fedId << " words: " << nWords;
 
     if (nWords < 5)
       continue;
     const unsigned char* data = fedData.data();
 
     const uint64_t* word = reinterpret_cast<const uint64_t*>(data);
+
     auto amc13Event = gemRawToDigi_->convertWordToAMC13Event(word);
 
     if (amc13Event == nullptr)
@@ -93,7 +135,6 @@ void GEMRawToDigiModule::produce(edm::StreamID iID, edm::Event& iEvent, edm::Eve
       for (auto gebData : *amcData.gebs()) {
         uint8_t gebId = gebData.inputID();
         GEMROMapping::chamEC geb_ec = {fedId, amcNum, gebId};
-        LogDebug("GEMRawToDigiModule") << " fed: " << fedId << " amc:" << int(amcNum) << " geb:" << int(gebId);
         GEMROMapping::chamDC geb_dc = gemROMap->chamberPos(geb_ec);
         GEMDetId gemChId = geb_dc.detId;
 
@@ -102,7 +143,6 @@ void GEMRawToDigiModule::produce(edm::StreamID iID, edm::Event& iEvent, edm::Eve
           vfatData.setVersion(geb_dc.vfatVer);
           uint16_t vfatId = vfatData.vfatId();
           GEMROMapping::vfatEC vfat_ec = {vfatId, gemChId};
-          LogDebug("GEMRawToDigiModule") << " vfatId: " << vfatId << " gemChId:" << gemChId;
 
           // check if ChipID exists.
           if (!gemROMap->isValidChipID(vfat_ec)) {
@@ -127,7 +167,6 @@ void GEMRawToDigiModule::produce(edm::StreamID iID, edm::Event& iEvent, edm::Eve
           vfatData.setPhi(vfat_dc.localPhi);
           GEMDetId gemId = vfat_dc.detId;
           int bx(vfatData.bc());
-          LogDebug("GEMRawToDigiModule") << " gemId: " << gemId << " bx:" << bx;
 
           for (int chan = 0; chan < VFATdata::nChannels; ++chan) {
             uint8_t chan0xf = 0;
@@ -147,7 +186,10 @@ void GEMRawToDigiModule::produce(edm::StreamID iID, edm::Event& iEvent, edm::Eve
 
             GEMDigi digi(stripId, bx);
 
-            LogDebug("GEMRawToDigiModule") << stripId << " ";
+            LogDebug("GEMRawToDigiModule")
+                << " fed: " << fedId << " amc:" << int(amcNum) << " geb:" << int(gebId) << " vfat:" << vfat_dc.localPhi
+                << ",type: " << vfat_dc.vfatType << " id:" << gemId << " ch:" << chMap.chNum << " st:" << digi.strip()
+                << " bx:" << digi.bx();
 
             outGEMDigis.get()->insertDigi(gemId, digi);
 

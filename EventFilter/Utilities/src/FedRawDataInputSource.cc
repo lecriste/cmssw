@@ -16,7 +16,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem/fstream.hpp>
 
-#include "DataFormats/FEDRawData/interface/FEDNumbering.h"
 #include "DataFormats/FEDRawData/interface/FEDHeader.h"
 #include "DataFormats/FEDRawData/interface/FEDTrailer.h"
 #include "DataFormats/FEDRawData/interface/FEDRawDataCollection.h"
@@ -61,6 +60,8 @@ FedRawDataInputSource::FedRawDataInputSource(edm::ParameterSet const& pset, edm:
       alwaysStartFromFirstLS_(pset.getUntrackedParameter<bool>("alwaysStartFromFirstLS", false)),
       verifyChecksum_(pset.getUntrackedParameter<bool>("verifyChecksum", true)),
       useL1EventID_(pset.getUntrackedParameter<bool>("useL1EventID", false)),
+      testTCDSFEDRange_(
+          pset.getUntrackedParameter<std::vector<unsigned int>>("testTCDSFEDRange", std::vector<unsigned int>())),
       fileNames_(pset.getUntrackedParameter<std::vector<std::string>>("fileNames", std::vector<std::string>())),
       fileListMode_(pset.getUntrackedParameter<bool>("fileListMode", false)),
       fileListLoopMode_(pset.getUntrackedParameter<bool>("fileListLoopMode", false)),
@@ -75,6 +76,15 @@ FedRawDataInputSource::FedRawDataInputSource(edm::ParameterSet const& pset, edm:
   gethostname(thishost, 255);
   edm::LogInfo("FedRawDataInputSource") << "Construction. read-ahead chunk size -: " << std::endl
                                         << (eventChunkSize_ / 1048576) << " MB on host " << thishost;
+
+  if (!testTCDSFEDRange_.empty()) {
+    if (testTCDSFEDRange_.size() != 2) {
+      throw cms::Exception("FedRawDataInputSource::fillFEDRawDataCollection")
+          << "Invalid TCDS Test FED range parameter";
+    }
+    MINTCDSuTCAFEDID_ = testTCDSFEDRange_[0];
+    MAXTCDSuTCAFEDID_ = testTCDSFEDRange_[1];
+  }
 
   long autoRunNumber = -1;
   if (fileListMode_) {
@@ -207,6 +217,8 @@ void FedRawDataInputSource::fillDescriptions(edm::ConfigurationDescriptions& des
       ->setComment("Verify event CRC-32C checksum of FRDv5 and higher or Adler32 with v3 and v4");
   desc.addUntracked<bool>("useL1EventID", false)
       ->setComment("Use L1 event ID from FED header if true or from TCDS FED if false");
+  desc.addUntracked<std::vector<unsigned int>>("testTCDSFEDRange", std::vector<unsigned int>())
+      ->setComment("[min, max] range to search for TCDS FED ID in test setup");
   desc.addUntracked<bool>("fileListMode", false)
       ->setComment("Use fileNames parameter to directly specify raw files to open");
   desc.addUntracked<std::vector<std::string>>("fileNames", std::vector<std::string>())
@@ -220,7 +232,7 @@ edm::RawInputSource::Next FedRawDataInputSource::checkNext() {
     //this thread opens new files and dispatches reading to worker readers
     //threadInit_.store(false,std::memory_order_release);
     std::unique_lock<std::mutex> lk(startupLock_);
-    readSupervisorThread_.reset(new std::thread(&FedRawDataInputSource::readSupervisor, this));
+    readSupervisorThread_ = std::make_unique<std::thread>(&FedRawDataInputSource::readSupervisor, this);
     startedSupervisorThread_ = true;
     startupCv_.wait(lk);
   }
@@ -471,8 +483,8 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
       readNextChunkIntoBuffer(currentFile_.get());
 
       if (detectedFRDversion_ == 0) {
-        detectedFRDversion_ = *((uint32*)dataPosition);
-        if (detectedFRDversion_ > 5)
+        detectedFRDversion_ = *((uint16_t*)dataPosition);
+        if (detectedFRDversion_ > 6)
           throw cms::Exception("FedRawDataInputSource::getNextEvent")
               << "Unknown FRD version -: " << detectedFRDversion_;
         assert(detectedFRDversion_ >= 1);
@@ -486,7 +498,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
       }
     }
 
-    event_.reset(new FRDEventMsgView(dataPosition));
+    event_ = std::make_unique<FRDEventMsgView>(dataPosition);
     if (event_->size() > eventChunkSize_) {
       throw cms::Exception("FedRawDataInputSource::getNextEvent")
           << " event id:" << event_->event() << " lumi:" << event_->lumi() << " run:" << event_->run()
@@ -504,7 +516,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
       readNextChunkIntoBuffer(currentFile_.get());
       //recalculate chunk position
       dataPosition = currentFile_->chunks_[0]->buf_ + currentFile_->chunkPosition_;
-      event_.reset(new FRDEventMsgView(dataPosition));
+      event_ = std::make_unique<FRDEventMsgView>(dataPosition);
     }
     currentFile_->bufferPosition_ += event_->size();
     currentFile_->chunkPosition_ += event_->size();
@@ -531,7 +543,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
     //read header, copy it to a single chunk if necessary
     bool chunkEnd = currentFile_->advance(dataPosition, FRDHeaderVersionSize[detectedFRDversion_]);
 
-    event_.reset(new FRDEventMsgView(dataPosition));
+    event_ = std::make_unique<FRDEventMsgView>(dataPosition);
     if (event_->size() > eventChunkSize_) {
       throw cms::Exception("FedRawDataInputSource::getNextEvent")
           << " event id:" << event_->event() << " lumi:" << event_->lumi() << " run:" << event_->run()
@@ -560,7 +572,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
         assert(chunkEnd);
         chunkIsFree_ = true;
         //header is moved
-        event_.reset(new FRDEventMsgView(dataPosition));
+        event_ = std::make_unique<FRDEventMsgView>(dataPosition);
       } else {
         //everything is in a single chunk, only move pointers forward
         chunkEnd = currentFile_->advance(dataPosition, msgSize);
@@ -610,13 +622,16 @@ void FedRawDataInputSource::read(edm::EventPrincipal& eventPrincipal) {
 
   if (useL1EventID_) {
     eventID_ = edm::EventID(eventRunNumber_, currentLumiSection_, L1EventID_);
-    edm::EventAuxiliary aux(eventID_, processGUID(), tstamp, true, edm::EventAuxiliary::PhysicsTrigger);
+    edm::EventAuxiliary aux(eventID_, processGUID(), tstamp, event_->isRealData(), edm::EventAuxiliary::PhysicsTrigger);
     aux.setProcessHistoryID(processHistoryID_);
     makeEvent(eventPrincipal, aux);
   } else if (tcds_pointer_ == nullptr) {
-    assert(GTPEventID_);
+    if (!GTPEventID_) {
+      throw cms::Exception("FedRawDataInputSource::read")
+          << "No TCDS or GTP FED in event with FEDHeader EID -: " << L1EventID_;
+    }
     eventID_ = edm::EventID(eventRunNumber_, currentLumiSection_, GTPEventID_);
-    edm::EventAuxiliary aux(eventID_, processGUID(), tstamp, true, edm::EventAuxiliary::PhysicsTrigger);
+    edm::EventAuxiliary aux(eventID_, processGUID(), tstamp, event_->isRealData(), edm::EventAuxiliary::PhysicsTrigger);
     aux.setProcessHistoryID(processHistoryID_);
     makeEvent(eventPrincipal, aux);
   } else {
@@ -626,6 +641,7 @@ void FedRawDataInputSource::read(edm::EventPrincipal& eventPrincipal) {
         evf::evtn::makeEventAuxiliary(tcds,
                                       eventRunNumber_,
                                       currentLumiSection_,
+                                      event_->isRealData(),
                                       static_cast<edm::EventAuxiliary::ExperimentType>(fedHeader.triggerType()),
                                       processGUID(),
                                       !fileListLoopMode_);
@@ -687,6 +703,7 @@ edm::Timestamp FedRawDataInputSource::fillFEDRawDataCollection(FEDRawDataCollect
   unsigned char* event = (unsigned char*)event_->payload();
   GTPEventID_ = 0;
   tcds_pointer_ = nullptr;
+  uint16_t selectedTCDSFed = 0;
   while (eventSize > 0) {
     assert(eventSize >= FEDTrailer::length);
     eventSize -= FEDTrailer::length;
@@ -698,9 +715,13 @@ edm::Timestamp FedRawDataInputSource::fillFEDRawDataCollection(FEDRawDataCollect
     const uint16_t fedId = fedHeader.sourceID();
     if (fedId > FEDNumbering::MAXFEDID) {
       throw cms::Exception("FedRawDataInputSource::fillFEDRawDataCollection") << "Out of range FED ID : " << fedId;
-    }
-    if (fedId == FEDNumbering::MINTCDSuTCAFEDID) {
-      tcds_pointer_ = event + eventSize;
+    } else if (fedId >= MINTCDSuTCAFEDID_ && fedId <= MAXTCDSuTCAFEDID_) {
+      if (!selectedTCDSFed) {
+        selectedTCDSFed = fedId;
+        tcds_pointer_ = event + eventSize;
+      } else
+        throw cms::Exception("FedRawDataInputSource::fillFEDRawDataCollection")
+            << "Second TCDS FED ID " << fedId << " found. First ID: " << selectedTCDSFed;
     }
     if (fedId == FEDNumbering::MINTriggerGTPFEDID) {
       if (evf::evtn::evm_board_sense(event + eventSize, fedSize))
@@ -977,7 +998,7 @@ void FedRawDataInputSource::readSupervisor() {
       if (useFileBroker_ || rawHeaderSize)
         rawFile = nextFile;
       else {
-        boost::filesystem::path rawFilePath(nextFile);
+        std::filesystem::path rawFilePath(nextFile);
         rawFile = rawFilePath.replace_extension(".raw").string();
       }
 
@@ -1318,9 +1339,9 @@ void FedRawDataInputSource::readWorker(unsigned int tid) {
 
     //detect FRD event version. Skip file Header if it exists
     if (detectedFRDversion_ == 0 && chunk->offset_ == 0) {
-      detectedFRDversion_ = *((uint32*)(chunk->buf_ + file->rawHeaderSize_));
+      detectedFRDversion_ = *((uint16_t*)(chunk->buf_ + file->rawHeaderSize_));
     }
-    assert(detectedFRDversion_ <= 5);
+    assert(detectedFRDversion_ <= 6);
     chunk->readComplete_ =
         true;  //this is atomic to secure the sequential buffer fill before becoming available for processing)
     file->chunks_[chunk->fileIndex_] = chunk;  //put the completed chunk in the file chunk vector at predetermined index
@@ -1386,20 +1407,20 @@ InputFile::~InputFile() {
     close(rawFd_);
 
   if (deleteFile_ && !fileName_.empty()) {
-    const boost::filesystem::path filePath(fileName_);
+    const std::filesystem::path filePath(fileName_);
     try {
       //sometimes this fails but file gets deleted
       LogDebug("FedRawDataInputSource:InputFile") << "Deleting input file -:" << fileName_;
-      boost::filesystem::remove(filePath);
+      std::filesystem::remove(filePath);
       return;
-    } catch (const boost::filesystem::filesystem_error& ex) {
+    } catch (const std::filesystem::filesystem_error& ex) {
       edm::LogError("FedRawDataInputSource:InputFile")
           << " - deleteFile BOOST FILESYSTEM ERROR CAUGHT -: " << ex.what() << ". Trying again.";
     } catch (std::exception& ex) {
       edm::LogError("FedRawDataInputSource:InputFile")
           << " - deleteFile std::exception CAUGHT -: " << ex.what() << ". Trying again.";
     }
-    boost::filesystem::remove(filePath);
+    std::filesystem::remove(filePath);
   }
 }
 
@@ -1498,18 +1519,23 @@ std::pair<bool, unsigned int> FedRawDataInputSource::getEventReport(unsigned int
 
 long FedRawDataInputSource::initFileList() {
   std::sort(fileNames_.begin(), fileNames_.end(), [](std::string a, std::string b) {
-    if (a.rfind("/") != std::string::npos)
-      a = a.substr(a.rfind("/"));
-    if (b.rfind("/") != std::string::npos)
-      b = b.substr(b.rfind("/"));
+    if (a.rfind('/') != std::string::npos)
+      a = a.substr(a.rfind('/'));
+    if (b.rfind('/') != std::string::npos)
+      b = b.substr(b.rfind('/'));
     return b > a;
   });
 
   if (!fileNames_.empty()) {
     //get run number from first file in the vector
-    boost::filesystem::path fileName = fileNames_[0];
+    std::filesystem::path fileName = fileNames_[0];
     std::string fileStem = fileName.stem().string();
-    auto end = fileStem.find("_");
+    if (fileStem.find("file://") == 0)
+      fileStem = fileStem.substr(7);
+    else if (fileStem.find("file:") == 0)
+      fileStem = fileStem.substr(5);
+    auto end = fileStem.find('_');
+
     if (fileStem.find("run") == 0) {
       std::string runStr = fileStem.substr(3, end - 3);
       try {
@@ -1536,12 +1562,12 @@ evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getFile(unsigned int& ls,
       nextFile = nextFile.substr(7);
     else if (nextFile.find("file:") == 0)
       nextFile = nextFile.substr(5);
-    boost::filesystem::path fileName = nextFile;
+    std::filesystem::path fileName = nextFile;
     std::string fileStem = fileName.stem().string();
     if (fileStem.find("ls"))
       fileStem = fileStem.substr(fileStem.find("ls") + 2);
-    if (fileStem.find("_"))
-      fileStem = fileStem.substr(0, fileStem.find("_"));
+    if (fileStem.find('_'))
+      fileStem = fileStem.substr(0, fileStem.find('_'));
 
     if (!fileListLoopMode_)
       ls = boost::lexical_cast<unsigned int>(fileStem);

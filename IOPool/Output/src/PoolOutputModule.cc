@@ -57,8 +57,6 @@ namespace edm {
         initializedFromInput_(false),
         outputFileCount_(0),
         inputFileCount_(0),
-        childIndex_(0U),
-        numberOfDigitsInIndex_(0U),
         branchParents_(),
         branchChildren_(),
         overrideInputFileSplitLevels_(pset.getUntrackedParameter<bool>("overrideInputFileSplitLevels")),
@@ -246,6 +244,10 @@ namespace edm {
   void PoolOutputModule::respondToOpenInputFile(FileBlock const& fb) {
     if (!initializedFromInput_) {
       for (int i = InEvent; i < NumBranchTypes; ++i) {
+        if (i == InProcess) {
+          // ProcessBlock output not implemented yet
+          continue;
+        }
         BranchType branchType = static_cast<BranchType>(i);
         TTree* theInputTree =
             (branchType == InEvent ? fb.tree() : (branchType == InLumi ? fb.lumiTree() : fb.runTree()));
@@ -344,12 +346,6 @@ namespace edm {
     std::ostringstream lfilename;
     ofilename << fileBase;
     lfilename << logicalFileName();
-    if (numberOfDigitsInIndex_) {
-      ofilename << '_' << std::setw(numberOfDigitsInIndex_) << std::setfill('0') << childIndex_;
-      if (!logicalFileName().empty()) {
-        lfilename << '_' << std::setw(numberOfDigitsInIndex_) << std::setfill('0') << childIndex_;
-      }
-    }
     if (outputFileCount_) {
       ofilename << std::setw(3) << std::setfill('0') << outputFileCount_;
       if (!logicalFileName().empty()) {

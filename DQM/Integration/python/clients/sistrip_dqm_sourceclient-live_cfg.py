@@ -2,8 +2,8 @@ from __future__ import print_function
 import FWCore.ParameterSet.Config as cms
 
 import sys
-from Configuration.Eras.Era_Run2_2018_pp_on_AA_cff import Run2_2018_pp_on_AA
-process = cms.Process("SiStrpDQMLive", Run2_2018_pp_on_AA)
+from Configuration.Eras.Era_Run3_cff import Run3
+process = cms.Process("SiStrpDQMLive", Run3)
 
 process.MessageLogger = cms.Service("MessageLogger",
     debugModules = cms.untracked.vstring('siStripDigis',
@@ -32,11 +32,14 @@ offlineTesting=not live
 # for live online DQM in P5
 if (unitTest):
     process.load("DQM.Integration.config.unittestinputsource_cfi")
+    from DQM.Integration.config.unittestinputsource_cfi import options
 elif (live):
     process.load("DQM.Integration.config.inputsource_cfi")
+    from DQM.Integration.config.inputsource_cfi import options
 # for testing in lxplus
 elif(offlineTesting):
     process.load("DQM.Integration.config.fileinputsource_cfi")
+    from DQM.Integration.config.fileinputsource_cfi import options
 
 #----------------------------
 # DQM Live Environment
@@ -52,6 +55,9 @@ process.DQM.filter = '^(SiStrip|Tracking)(/[^/]+){0,5}$'
 process.dqmEnv.subSystemFolder    = "SiStrip"
 process.dqmSaver.tag = "SiStrip"
 process.dqmSaver.backupLumiCount = 30
+process.dqmSaver.runNumber = options.runNumber
+process.dqmSaverPB.tag = "SiStrip"
+process.dqmSaverPB.runNumber = options.runNumber
 
 from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
 process.dqmEnvTr = DQMEDAnalyzer('DQMEventInfo',
@@ -208,7 +214,7 @@ process.hltHighLevel.throw =  cms.bool(False)
 # Scheduling
 #--------------------------
 process.SiStripSources_LocalReco = cms.Sequence(process.siStripFEDMonitor*process.SiStripMonitorDigi*process.SiStripMonitorClusterReal)
-process.DQMCommon                = cms.Sequence(process.stripQTester*process.trackingQTester*process.dqmEnv*process.dqmEnvTr*process.dqmSaver)
+process.DQMCommon                = cms.Sequence(process.stripQTester*process.trackingQTester*process.dqmEnv*process.dqmEnvTr*process.dqmSaver*process.dqmSaverPB)
 if (process.runType.getRunType() == process.runType.hi_run):
     process.RecoForDQM_LocalReco     = cms.Sequence(process.siPixelDigis*process.siStripDigis*process.trackerlocalreco)
 else :
@@ -266,6 +272,8 @@ if (process.runType.getRunType() == process.runType.cosmic_run or process.runTyp
     process.trackingQTester.qtestOnEndRun           = cms.untracked.bool(True)
 
     process.p = cms.Path(process.scalersRawToDigi*
+                         process.tcdsDigis*
+                         process.onlineMetaDataDigis*
                          process.APVPhases*
                          process.consecutiveHEs*
                          process.hltTriggerTypeFilter*
@@ -369,6 +377,8 @@ if (process.runType.getRunType() == process.runType.pp_run or process.runType.ge
 
     process.p = cms.Path(
         process.scalersRawToDigi*
+        process.tcdsDigis*
+        process.onlineMetaDataDigis*
         process.APVPhases*
         process.consecutiveHEs*
         process.hltTriggerTypeFilter*
@@ -463,6 +473,8 @@ if (process.runType.getRunType() == process.runType.hpu_run):
     process.RecoForDQM_TrkReco       = cms.Sequence(process.offlineBeamSpot*process.MeasurementTrackerEvent*process.siPixelClusterShapeCache*process.recopixelvertexing*process.iterTracking_FirstStep)
 
     process.p = cms.Path(process.scalersRawToDigi*
+                         process.tcdsDigis*
+                         process.onlineMetaDataDigis*
                          process.APVPhases*
                          process.consecutiveHEs*
                          process.hltTriggerTypeFilter*
@@ -617,6 +629,8 @@ if (process.runType.getRunType() == process.runType.hi_run):
 
     process.p = cms.Path(
         process.scalersRawToDigi*
+        process.tcdsDigis*
+        process.onlineMetaDataDigis*
         process.APVPhases*
         process.consecutiveHEs*
         process.hltTriggerTypeFilter*

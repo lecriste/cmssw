@@ -21,6 +21,7 @@
 #include "G4PhysicalConstants.hh"
 
 #include <fstream>
+#include <memory>
 
 //#define EDM_ML_DEBUG
 
@@ -73,12 +74,12 @@ CaloSD::CaloSD(const std::string& name,
       if (k < tmaxHits.size())
         tmaxHit = tmaxHits[k] * CLHEP::ns;
       if (k < useResMap.size() && useResMap[k] > 0) {
-        meanResponse.reset(new CaloMeanResponse(p));
+        meanResponse = std::make_unique<CaloMeanResponse>(p);
         break;
       }
     }
   }
-  slave.reset(new CaloSlaveSD(name));
+  slave = std::make_unique<CaloSlaveSD>(name);
 
   currentID = CaloHitID(timeSlice, ignoreTrackID);
   previousID = CaloHitID(timeSlice, ignoreTrackID);
@@ -106,6 +107,7 @@ CaloSD::~CaloSD() {}
 
 G4bool CaloSD::ProcessHits(G4Step* aStep, G4TouchableHistory*) {
   NaNTrap(aStep);
+  ignoreReject = false;
 
 #ifdef EDM_ML_DEBUG
   edm::LogVerbatim("CaloSim") << "CaloSD::" << GetName() << " ID= " << aStep->GetTrack()->GetTrackID()
@@ -140,7 +142,7 @@ G4bool CaloSD::ProcessHits(G4Step* aStep, G4TouchableHistory*) {
   if (unitID > 0) {
     currentID.setID(unitID, time, primaryID, depth);
   } else {
-    if (aStep->GetTotalEnergyDeposit() > 0.0) {
+    if (aStep->GetTotalEnergyDeposit() > 0.0 && (!ignoreReject)) {
       const G4TouchableHistory* touch = static_cast<const G4TouchableHistory*>(theTrack->GetTouchable());
       edm::LogVerbatim("CaloSim") << "CaloSD::ProcessHits: unitID= " << unitID << " currUnit=   " << currentID.unitID()
                                   << " Detector: " << GetName() << " trackID= " << theTrack->GetTrackID() << " "
@@ -184,14 +186,12 @@ G4bool CaloSD::ProcessHits(G4Step* aStep, G4TouchableHistory*) {
 bool CaloSD::ProcessHits(G4GFlashSpot* aSpot, G4TouchableHistory*) {
   edepositEM = edepositHAD = 0.f;
   const G4Track* track = aSpot->GetOriginatorTrack()->GetPrimaryTrack();
-  if (!G4TrackToParticleID::isGammaElectronPositron(track)) {
-    return false;
-  }
+
   double edep = aSpot->GetEnergySpot()->GetEnergy();
   if (edep <= 0.0) {
     return false;
   }
-  edepositEM = edep;
+
   G4Step fFakeStep;
   G4StepPoint* fFakePreStepPoint = fFakeStep.GetPreStepPoint();
   G4StepPoint* fFakePostStepPoint = fFakeStep.GetPostStepPoint();
@@ -201,6 +201,16 @@ bool CaloSD::ProcessHits(G4GFlashSpot* aSpot, G4TouchableHistory*) {
   G4TouchableHandle fTouchableHandle = aSpot->GetTouchableHandle();
   fFakePreStepPoint->SetTouchableHandle(fTouchableHandle);
   fFakeStep.SetTotalEnergyDeposit(edep);
+  edep = EnergyCorrected(fFakeStep, track);
+  if (edep <= 0.0) {
+    return false;
+  }
+
+  if (G4TrackToParticleID::isGammaElectronPositron(track)) {
+    edepositEM = edep;
+  } else {
+    edepositHAD = edep;
+  }
 
   unsigned int unitID = setDetUnitId(&fFakeStep);
 
@@ -239,6 +249,8 @@ bool CaloSD::ProcessHits(G4GFlashSpot* aSpot, G4TouchableHistory*) {
 }
 
 double CaloSD::getEnergyDeposit(const G4Step* aStep) { return aStep->GetTotalEnergyDeposit(); }
+
+double CaloSD::EnergyCorrected(const G4Step& aStep, const G4Track*) { return aStep.GetTotalEnergyDeposit(); }
 
 bool CaloSD::getFromLibrary(const G4Step*) { return false; }
 
@@ -282,6 +294,10 @@ void CaloSD::PrintAll() {
 }
 
 void CaloSD::fillHits(edm::PCaloHitContainer& cc, const std::string& hname) {
+#ifdef EDM_ML_DEBUG
+  edm::LogVerbatim("CaloSim") << "CaloSD: Tries to transfer " << slave.get()->hits().size() << " hits for "
+                              << slave.get()->name() << "   " << hname;
+#endif
   if (slave.get()->name() == hname) {
     cc = slave.get()->hits();
   }

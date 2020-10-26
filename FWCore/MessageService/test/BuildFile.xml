@@ -259,6 +259,9 @@
   <use name="boost_program_options"/>
   <use name="FWCore/Framework"/>
   <use name="FWCore/MessageLogger"/>
-  <use name="FWCore/PluginManager"/>
-  <use name="FWCore/ServiceRegistry"/>
+</bin>
+
+<bin file="fmt_test.cppunit.cpp">
+  <use name="fmt"/>
+  <use name="cppunit"/>
 </bin>

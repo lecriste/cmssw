@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <cstdlib>
-#include <boost/format.hpp>
+#include <fmt/printf.h>
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Framework/interface/Event.h"
@@ -52,11 +52,11 @@ DD4hep_TrackingMaterialAnalyser::DD4hep_TrackingMaterialAnalyser(const edm::Para
   m_isHFNose = iPSet.getParameter<bool>("isHFNose");
   if (m_saveSummaryPlot) {
     if (m_isHGCal) {
-      m_plotter = new DD4hep_TrackingMaterialPlotter(550., 300., 10);
+      m_plotter = std::make_unique<DD4hep_TrackingMaterialPlotter>(550., 300., 10);
     } else if (m_isHFNose) {
-      m_plotter = new DD4hep_TrackingMaterialPlotter(1200., 350., 10);
+      m_plotter = std::make_unique<DD4hep_TrackingMaterialPlotter>(1200., 350., 10);
     } else {
-      m_plotter = new DD4hep_TrackingMaterialPlotter(300., 120., 10);
+      m_plotter = std::make_unique<DD4hep_TrackingMaterialPlotter>(300., 120., 10);
     }  // 10x10 points per cm2
   } else {
     m_plotter = nullptr;
@@ -64,10 +64,7 @@ DD4hep_TrackingMaterialAnalyser::DD4hep_TrackingMaterialAnalyser(const edm::Para
 }
 
 //-------------------------------------------------------------------------
-DD4hep_TrackingMaterialAnalyser::~DD4hep_TrackingMaterialAnalyser(void) {
-  if (m_plotter)
-    delete m_plotter;
-}
+DD4hep_TrackingMaterialAnalyser::~DD4hep_TrackingMaterialAnalyser(void) {}
 
 //-------------------------------------------------------------------------
 void DD4hep_TrackingMaterialAnalyser::saveParameters(const char* name) {
@@ -77,25 +74,32 @@ void DD4hep_TrackingMaterialAnalyser::saveParameters(const char* name) {
     DD4hep_MaterialAccountingGroup& layer = *(m_groups[i]);
     edm::LogVerbatim("TrackerMaterialAnalysis") << "TrackingMaterialAnalyser" << layer.name() << std::endl;
     edm::LogVerbatim("TrackerMaterialAnalysis")
-        << "TrackingMaterialAnalyser" << boost::format("\tnumber of hits:               %9d") % layer.tracks()
+        << "TrackingMaterialAnalyser" << fmt::sprintf("\tnumber of hits:               %9d", layer.tracks())
+        << std::endl;
+    edm::LogVerbatim("TrackerMaterialAnalysis")
+        << "TrackingMaterialAnalyser"
+        << fmt::sprintf("\tnormalized segment length:    %9.1f ± %9.1f cm", layer.averageLength(), layer.sigmaLength())
         << std::endl;
     edm::LogVerbatim("TrackerMaterialAnalysis") << "TrackingMaterialAnalyser"
-                                                << boost::format("\tnormalized segment length:    %9.1f ± %9.1f cm") %
-                                                       layer.averageLength() % layer.sigmaLength()
-                                                << std::endl;
-    edm::LogVerbatim("TrackerMaterialAnalysis") << "TrackingMaterialAnalyser"
-                                                << boost::format("\tnormalized radiation lengths: %9.3f ± %9.3f") %
-                                                       layer.averageRadiationLengths() % layer.sigmaRadiationLengths()
+                                                << fmt::sprintf("\tnormalized radiation lengths: %9.3f ± %9.3f",
+                                                                layer.averageRadiationLengths(),
+                                                                layer.sigmaRadiationLengths())
                                                 << std::endl;
     edm::LogVerbatim("TrackerMaterialAnalysis")
         << "TrackingMaterialAnalyser"
-        << boost::format("\tnormalized energy loss:       %6.5fe-03 ± %6.5fe-03 GeV") % layer.averageEnergyLoss() %
-               layer.sigmaEnergyLoss()
+        << fmt::sprintf("\tnormalized energy loss:       %6.5fe-03 ± %6.5fe-03 GeV",
+                        layer.averageEnergyLoss(),
+                        layer.sigmaEnergyLoss())
         << std::endl;
-    parameters << boost::format("%-20s\t%7d\t%5.1f ± %5.1f cm\t%6.4f ± %6.4f \t%6.4fe-03 ± %6.4fe-03 GeV") %
-                      layer.name() % layer.tracks() % layer.averageLength() % layer.sigmaLength() %
-                      layer.averageRadiationLengths() % layer.sigmaRadiationLengths() % layer.averageEnergyLoss() %
-                      layer.sigmaEnergyLoss()
+    parameters << fmt::sprintf("%-20s\t%7d\t%5.1f ± %5.1f cm\t%6.4f ± %6.4f \t%6.4fe-03 ± %6.4fe-03 GeV",
+                               layer.name(),
+                               layer.tracks(),
+                               layer.averageLength(),
+                               layer.sigmaLength(),
+                               layer.averageRadiationLengths(),
+                               layer.sigmaRadiationLengths(),
+                               layer.averageEnergyLoss(),
+                               layer.sigmaEnergyLoss())
                << std::endl;
   }
   edm::LogVerbatim("TrackerMaterialAnalysis") << "TrackingMaterialAnalyser" << std::endl;
@@ -158,7 +162,7 @@ void DD4hep_TrackingMaterialAnalyser::analyze(const edm::Event& event, const edm
   // over again in the eventloop, at each call of the analyze method.
   if (m_groups.empty()) {
     for (unsigned int i = 0; i < m_groupNames.size(); ++i)
-      m_groups.push_back(new DD4hep_MaterialAccountingGroup(m_groupNames[i], *hDDD));
+      m_groups.emplace_back(new DD4hep_MaterialAccountingGroup(m_groupNames[i], *hDDD));
 
     edm::LogVerbatim("TrackerMaterialAnalysis")
         << "TrackingMaterialAnalyser: List of the tracker groups: " << std::endl;

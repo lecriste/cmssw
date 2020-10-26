@@ -17,13 +17,6 @@ from HLTrigger.Configuration.common import *
 #                     pset.minGoodStripCharge = cms.PSet(refToPSet_ = cms.string('HLTSiStripClusterChargeCutNone'))
 #     return process
 
-# Hcal calibration lookup using linear indexing
-def customiseFor30060(process, menuType):
-    menusToSkip = ("Fake", "Fake1", "Fake2")
-    if menuType not in menusToSkip:
-        process.hcalChannelPropertiesESProd = cms.ESProducer('HcalChannelPropertiesEP')
-    return process
-
 from RecoParticleFlow.PFClusterProducer.particleFlowClusterHCAL_cfi import _thresholdsHB
 from RecoParticleFlow.PFClusterProducer.particleFlowClusterHBHE_cfi import _seedingThresholdsHB, _thresholdsHB
 from RecoParticleFlow.PFClusterProducer.particleFlowRecHitHBHE_cfi import _thresholdsHB as _thresholdsHBRec
@@ -177,50 +170,57 @@ def customiseFor2017DtUnpacking(process):
 
     return process
 
-def customiseFor30046(process, menuType="GRun"):
-    if not menuType.startswith("Fake"): ## not for Fake* HLT menus (adding this would cause an error because the SiStripGain dependency ESProducer is not there)
-        process.SiStripClusterizerConditionsESProducer = cms.ESProducer('SiStripClusterizerConditionsESProducer',
-            QualityLabel = cms.string(''),
-            Label = cms.string(''),
-            appendToDataLabel = cms.string('')
-        )
-    for producer in producers_by_type(process, "SiStripClusterizer", "SiStripClusterizerFromRaw"):
-        del producer.Clusterizer.QualityLabel
-        producer.Clusterizer.ConditionsLabel = cms.string('')
+def customisePixelGainForRun2Input(process):
+    """Customise the HLT to run on Run 2 data/MC using the old definition of the pixel calibrations
+
+    Up to 11.0.x, the pixel calibarations were fully specified in the configuration:
+        VCaltoElectronGain      =   47
+        VCaltoElectronGain_L1   =   50
+        VCaltoElectronOffset    =  -60
+        VCaltoElectronOffset_L1 = -670
+
+    Starting with 11.1.x, the calibrations for Run 3 were moved to the conditions, leaving in the configuration only:
+        VCaltoElectronGain      =    1
+        VCaltoElectronGain_L1   =    1
+        VCaltoElectronOffset    =    0
+        VCaltoElectronOffset_L1 =    0
+
+    Since the conditions for Run 2 have not been updated to the new scheme, the HLT configuration needs to be reverted.
+    """
+    # revert the Pixel parameters to be compatible with the Run 2 conditions
+    for producer in producers_by_type(process, "SiPixelClusterProducer"):
+        producer.VCaltoElectronGain      =   47
+        producer.VCaltoElectronGain_L1   =   50
+        producer.VCaltoElectronOffset    =  -60
+        producer.VCaltoElectronOffset_L1 = -670
 
     return process
 
-def customiseFor30280(process):
-    """Adapt the HLT to adapt the recent changed in Muon Geometry"""
 
-    if hasattr(process,'RPCGeometryESModule'):
-        process.RPCGeometryESModule = cms.ESProducer( "RPCGeometryESModule",
-            useDDD = cms.untracked.bool( False ),
-            useDD4hep = cms.untracked.bool( False )
-        )
-    if hasattr(process,'CSCGeometryESModule'):
-        process.CSCGeometryESModule = cms.ESProducer( "CSCGeometryESModule",
-            useRealWireGeometry = cms.bool( True ),
-            appendToDataLabel = cms.string( "" ),
-            alignmentsLabel = cms.string( "" ),
-            useGangedStripsInME1a = cms.bool( False ),
-            debugV = cms.untracked.bool( False ),
-            useOnlyWiresInME1a = cms.bool( False ),
-            useDDD = cms.bool( False ),
-            useDD4hep = cms.bool( False ),
-            useCentreTIOffsets = cms.bool( False ),
-            applyAlignment = cms.bool( True )
-        )
+def customiseFor2018Input(process):
+    """Customise the HLT to run on Run 2 data/MC"""
+    process = customisePixelGainForRun2Input(process)
+    process = synchronizeHCALHLTofflineRun3on2018data(process)
 
+
+def customizeToDropObsoleteMessageLoggerOptions(process):
+    if 'MessageLogger' in process.__dict__:
+        if not hasattr(process.MessageLogger, "fwkJobReports"):
+            return process
+        for config in process.MessageLogger.fwkJobReports.value():
+            if hasattr(process.MessageLogger, config):
+                delattr(process.MessageLogger, config)
+        delattr(process.MessageLogger, "fwkJobReports")
     return process
+
 
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
 
     # add call to action function in proper order: newest last!
     # process = customiseFor12718(process)
-    process = customiseFor30060(process, menuType)
-    process = customiseFor30046(process, menuType=menuType)
-    process = customiseFor30280(process)
+
+    #introduced in pull request #31859
+    process = customizeToDropObsoleteMessageLoggerOptions(process)
 
     return process

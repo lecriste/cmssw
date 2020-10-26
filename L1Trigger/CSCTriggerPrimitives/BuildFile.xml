@@ -6,8 +6,9 @@
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ParameterSet"/>
 <use name="FWCore/Utilities"/>
+<use name="Geometry/CSCGeometry"/>
 <use name="Geometry/GEMGeometry"/>
-<use name="L1Trigger/CSCCommonTrigger"/>
+<use name="Geometry/CSCGeometry"/>
 <export>
   <lib name="1"/>
 </export>

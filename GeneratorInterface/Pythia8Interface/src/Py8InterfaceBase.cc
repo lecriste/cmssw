@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "GeneratorInterface/Pythia8Interface/interface/Py8InterfaceBase.h"
 
 #include "FWCore/Utilities/interface/Exception.h"
@@ -77,12 +79,13 @@ namespace gen {
 
   bool Py8InterfaceBase::readSettings(int) {
     if (!fMasterGen.get())
-      fMasterGen.reset(new Pythia);
-    fDecayer.reset(new Pythia);
+      fMasterGen = std::make_unique<Pythia>();
+    fDecayer = std::make_unique<Pythia>();
 
     //add settings for resonance decay filter
     fMasterGen->settings.addFlag("BiasedTauDecayer:filter", false);
-    fMasterGen->settings.addFlag("BiasedTauDecayer:eMuDecays", true);
+    fMasterGen->settings.addFlag("BiasedTauDecayer:eDecays", true);
+    fMasterGen->settings.addFlag("BiasedTauDecayer:muDecays", true);
 
     //add settings for resonance decay filter
     fMasterGen->settings.addFlag("ResonanceDecayFilter:filter", false);
