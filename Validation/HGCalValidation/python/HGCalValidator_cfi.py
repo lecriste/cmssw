@@ -29,6 +29,7 @@ hgcalValidator = DQMEDAnalyzer(
     associator = cms.untracked.InputTag("layerClusterCaloParticleAssociationProducer"),
 
     associatorSim = cms.untracked.InputTag("layerClusterSimClusterAssociationProducer"),
+    associatorSimTS = cms.untracked.InputTag("layerClusterSimTracksterAssociationProducer"),
 
     #General info on layers etc.
     SaveGeneralInfo = cms.untracked.bool(True),

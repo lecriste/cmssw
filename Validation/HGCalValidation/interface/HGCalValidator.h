@@ -28,6 +28,7 @@
 
 #include "SimDataFormats/Associations/interface/LayerClusterToCaloParticleAssociator.h"
 #include "SimDataFormats/Associations/interface/LayerClusterToSimClusterAssociator.h"
+#include "SimDataFormats/Associations/interface/LayerClusterToSimTracksterAssociator.h"
 
 class PileupSummaryInfo;
 
@@ -64,6 +65,7 @@ protected:
   std::vector<edm::InputTag> label_tst;
   edm::InputTag associator_;
   edm::InputTag associatorSim_;
+  edm::InputTag associatorSimTS_;
   const bool SaveGeneralInfo_;
   const bool doCaloParticlePlots_;
   const bool doCaloParticleSelection_;
@@ -87,6 +89,8 @@ protected:
   edm::EDGetTokenT<hgcal::SimToRecoCollection> associatorMapStR;
   edm::EDGetTokenT<hgcal::SimToRecoCollectionWithSimClusters> associatorMapSimtR;
   edm::EDGetTokenT<hgcal::RecoToSimCollectionWithSimClusters> associatorMapRtSim;
+  edm::EDGetTokenT<hgcal::SimTracksterToRecoCollection> associatorMapSimTStR;
+  edm::EDGetTokenT<hgcal::RecoToSimTracksterCollection> associatorMapRtSimTS;
   std::unique_ptr<HGVHistoProducerAlgo> histoProducerAlgo_;
 
 private:

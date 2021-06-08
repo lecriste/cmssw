@@ -14,6 +14,7 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
       label_tst(pset.getParameter<std::vector<edm::InputTag>>("label_tst")),
       associator_(pset.getUntrackedParameter<edm::InputTag>("associator")),
       associatorSim_(pset.getUntrackedParameter<edm::InputTag>("associatorSim")),
+      associatorSimTS_(pset.getUntrackedParameter<edm::InputTag>("associatorSimTS")),
       SaveGeneralInfo_(pset.getUntrackedParameter<bool>("SaveGeneralInfo")),
       doCaloParticlePlots_(pset.getUntrackedParameter<bool>("doCaloParticlePlots")),
       doCaloParticleSelection_(pset.getUntrackedParameter<bool>("doCaloParticleSelection")),
@@ -37,6 +38,8 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
 
   associatorMapSimtR = consumes<hgcal::SimToRecoCollectionWithSimClusters>(associatorSim_);
   associatorMapRtSim = consumes<hgcal::RecoToSimCollectionWithSimClusters>(associatorSim_);
+  associatorMapSimTStR = consumes<hgcal::SimTracksterToRecoCollection>(associatorSimTS_);
+  associatorMapRtSimTS = consumes<hgcal::RecoToSimTracksterCollection>(associatorSimTS_);
 
   hitMap_ = consumes<std::unordered_map<DetId, const HGCRecHit*>>(edm::InputTag("hgcalRecHitMapProducer"));
 
