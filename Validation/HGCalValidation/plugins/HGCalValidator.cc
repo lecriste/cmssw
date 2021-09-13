@@ -12,6 +12,7 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
     : caloGeomToken_(esConsumes<CaloGeometry, CaloGeometryRecord>()),
       label_lcl(pset.getParameter<edm::InputTag>("label_lcl")),
       label_tst(pset.getParameter<std::vector<edm::InputTag>>("label_tst")),
+      label_simTS(pset.getParameter<edm::InputTag>("label_simTS")),
       label_simTSFromCP(pset.getParameter<edm::InputTag>("label_simTSFromCP")),
       associator_(pset.getUntrackedParameter<edm::InputTag>("associator")),
       associatorSim_(pset.getUntrackedParameter<edm::InputTag>("associatorSim")),
@@ -44,6 +45,8 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
   associatorMapSimtR = consumes<hgcal::SimToRecoCollectionWithSimClusters>(associatorSim_);
   associatorMapRtSim = consumes<hgcal::RecoToSimCollectionWithSimClusters>(associatorSim_);
 
+  simTrackstersMap_ = consumes<std::map<uint, std::vector<uint>>>(edm::InputTag("ticlSimTracksters"));
+
   hitMap_ = consumes<std::unordered_map<DetId, const HGCRecHit*>>(edm::InputTag("hgcalRecHitMapProducer"));
 
   density_ = consumes<Density>(edm::InputTag("hgcalLayerClusters"));
@@ -56,7 +59,8 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
     label_tstTokens.push_back(consumes<ticl::TracksterCollection>(itag));
   }
 
-  simTrackstersFromCPs_ = consumes<ticl::TracksterCollection>(label_simTSFromCP);
+  simTracksters_ = consumes<ticl::TracksterCollection>(label_simTS);
+  simTracksters_fromCPs_ = consumes<ticl::TracksterCollection>(label_simTSFromCP);
 
   associatorMapRtS = consumes<hgcal::RecoToSimCollection>(associator_);
   associatorMapStR = consumes<hgcal::SimToRecoCollection>(associator_);
@@ -252,9 +256,17 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
   event.getByToken(label_cp_effic, caloParticleHandle);
   std::vector<CaloParticle> const& caloParticles = *caloParticleHandle;
 
+  edm::Handle<ticl::TracksterCollection> simTracksterHandle;
+  event.getByToken(simTracksters_, simTracksterHandle);
+  ticl::TracksterCollection const& simTracksters = *simTracksterHandle;
+
   edm::Handle<ticl::TracksterCollection> simTracksterFromCPHandle;
-  event.getByToken(simTrackstersFromCPs_, simTracksterFromCPHandle);
+  event.getByToken(simTracksters_fromCPs_, simTracksterFromCPHandle);
   ticl::TracksterCollection const& simTrackstersFromCPs = *simTracksterFromCPHandle;
+
+  edm::Handle<std::map<uint, std::vector<uint>>> simTrackstersMapHandle;
+  event.getByToken(simTrackstersMap_, simTrackstersMapHandle);
+  const std::map<uint, std::vector<uint>> cpToSc_SimTrackstersMap = *simTrackstersMapHandle;
 
   edm::ESHandle<CaloGeometry> geom = setup.getHandle(caloGeomToken_);
   tools_->setGeometry(*geom);
@@ -400,7 +412,10 @@ void HGCalValidator::dqmAnalyze(const edm::Event& event,
                                                 wml,
                                                 tracksters,
                                                 clusters,
+                                                simTracksters,
                                                 simTrackstersFromCPs,
+                                                cpToSc_SimTrackstersMap,
+                                                caloParticleHandle.id(),
                                                 caloParticles,
                                                 cPIndices,
                                                 selected_cPeff,
