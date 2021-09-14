@@ -1096,9 +1096,9 @@ void HGVHistoProducerAlgo::bookTracksterHistos(DQMStore::IBooker& ibook, Histogr
 }
 
 void HGVHistoProducerAlgo::bookTracksterSTSHistos(DQMStore::IBooker& ibook, Histograms& histograms, const int i) {
-  TString ref[] = {"caloparticle", "simtrackster"};
-  TString refT[] = {"CaloParticle", "SimTrackster"};
-  TString val[] = {"_Link", "_PR"};
+  const string ref[] = {"caloparticle", "simtrackster"};
+  const string refT[] = {"CaloParticle", "SimTrackster"};
+  const string val[] = {"_Link", "_PR"};
 
   histograms.h_score_trackster2caloparticle[i].push_back(
       ibook.book1D("Score_trackster2" + ref[i], "Score of Trackster per " + refT[i], nintScore_, minScore_, maxScore_));
@@ -2313,8 +2313,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
   //2. the hits and fractions of that calo particle i in layer j.
   //3. the layer clusters with matched rechit id.
   std::unordered_map<int, std::vector<caloParticleOnLayer>> cPOnLayer;
-  for (unsigned int i = 0; i < nCaloParticles; ++i) {
-    auto cpIndex = cPIndices[i];
+  for (unsigned int iCP = 0; iCP < nCaloParticles; ++iCP) {
+    auto cpIndex = cPIndices[iCP];
     cPOnLayer[cpIndex].resize(layers * 2);
     for (unsigned int j = 0; j < layers * 2; ++j) {
       cPOnLayer[cpIndex][j].caloParticleId = cpIndex;
@@ -2631,9 +2631,9 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     }
     invTracksterEnergyWeight = 1.f / invTracksterEnergyWeight;
 
-    for (unsigned int i = 0; i < tst_hitsAndFractions.size(); ++i) {
-      const auto rh_detid = tst_hitsAndFractions[i].first;
-      const auto rhFraction = tst_hitsAndFractions[i].second;
+    for (const auto& haf : tst_hitsAndFractions) {
+      const auto rh_detid = haf.first;
+      const auto rhFraction = haf.second;
       bool hitWithNoSTS = false;
 
       auto hit_find_in_STS = detIdSimTSId_Map.find(rh_detid);
@@ -2701,8 +2701,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
   std::unordered_map<int, std::vector<float>> tstSharedEnergy;
   std::unordered_map<int, std::vector<float>> tstSharedEnergyFrac;
 
-  for (unsigned int i = 0; i < nCaloParticles; ++i) {
-    auto cpIndex = cPIndices[i];
+  for (unsigned int iCP = 0; iCP < nCaloParticles; ++iCP) {
+    auto cpIndex = cPIndices[iCP];
     score3d[cpIndex].resize(nTracksters);
     tstSharedEnergy[cpIndex].resize(nTracksters);
     tstSharedEnergyFrac[cpIndex].resize(nTracksters);
@@ -2758,9 +2758,9 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                  << "\t" << std::setw(15) << maxEnergyTSperlayerinCP << "\t" << std::setw(20)
                                  << CPEnergyFractionInTSperlayer << "\n";
 
-      for (unsigned int i = 0; i < CPNumberOfHits; ++i) {
-        auto& cp_hitDetId = cPOnLayer[cpId][layerId].hits_and_fractions[i].first;
-        auto& cpFraction = cPOnLayer[cpId][layerId].hits_and_fractions[i].second;
+      for (unsigned int iHit = 0; iHit < CPNumberOfHits; ++iHit) {
+        auto& cp_hitDetId = cPOnLayer[cpId][layerId].hits_and_fractions[iHit].first;
+        auto& cpFraction = cPOnLayer[cpId][layerId].hits_and_fractions[iHit].second;
 
         bool hitWithNoTS = false;
         if (cpFraction == 0.f)
@@ -2841,8 +2841,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     // one tracksters, leading to efficiencies >1. This boolean is used to
     // avoid "over counting".
     bool cp_considered_efficient = false;
-    for (unsigned int i = 0; i < cpId_tstId_related_vec.size(); ++i) {
-      auto tstId = cpId_tstId_related_vec[i];
+    for (const auto tstId : cpId_tstId_related_vec) {
       //Now time for the denominator
       score3d[cpId][tstId] = score3d[cpId][tstId] * invCPEnergyWeight;
       tstSharedEnergyFrac[cpId][tstId] = (tstSharedEnergy[cpId][tstId] / CPenergy);
@@ -2898,7 +2897,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     histograms.h_denom_caloparticle_eta[i][count]->Fill(simTS[iSTS].barycenter().eta());
     histograms.h_denom_caloparticle_phi[i][count]->Fill(simTS[iSTS].barycenter().phi());
 
-  }  //end of loop through CaloParticles
+  }  //end of loop through SimTracksters
 
   // Here we do fill the plots to compute the different metrics linked to
   // reco-level, namely fake-rate an merge-rate. In this loop we should *not*

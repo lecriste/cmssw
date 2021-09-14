@@ -64,7 +64,7 @@ subdirsTracksters = [prefix+'hgcalTracksters/'+tsToCP_linking, prefix+'ticlSimTr
 subdirsTracksters.extend(prefix+'ticlTracksters'+iteration+'/'+tsToCP_linking for iteration in ticlIterLabelsMerge)
 
 tsToSTS_patternRec = hgcalValidator.label_TSToSTSPR._InputTag__moduleLabel
-subdirsTracksters.extend(prefix+'hgcalTracksters/'+tsToSTS_patternRec, prefix+'ticlSimTracksters/'+tsToSTS_patternRec)
+subdirsTracksters.extend([prefix+'hgcalTracksters/'+tsToSTS_patternRec, prefix+'ticlSimTracksters/'+tsToSTS_patternRec])
 subdirsTracksters.extend(prefix+'ticlTracksters'+iteration+'/'+tsToSTS_patternRec for iteration in ticlIterLabelsMerge)
 
 postProcessorHGCALTracksters = DQMEDHarvester('DQMGenericClient',
