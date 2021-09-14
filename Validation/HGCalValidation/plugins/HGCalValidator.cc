@@ -27,6 +27,7 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
       label_LCToCPLinking_(pset.getParameter<edm::InputTag>("label_LCToCPLinking")),
       doTrackstersPlots_(pset.getUntrackedParameter<bool>("doTrackstersPlots")),
       label_TSToCPLinking_(pset.getParameter<edm::InputTag>("label_TSToCPLinking")),
+      label_TSToSTSPR_(pset.getParameter<edm::InputTag>("label_TSToSTSPR")),
       label_clustersmask(pset.getParameter<std::vector<edm::InputTag>>("LayerClustersInputMask")),
       cummatbudinxo_(pset.getParameter<edm::FileInPath>("cummatbudinxo")) {
   //In this way we can easily generalize to associations between other objects also.
@@ -206,9 +207,14 @@ void HGCalValidator::bookHistograms(DQMStore::IBooker& ibook,
 
     //Booking histograms concerning HGCal tracksters
     if (doTrackstersPlots_) {
+      // Generic histos
       histoProducerAlgo_->bookTracksterHistos(ibook, histograms.histoProducerAlgo, totallayers_to_monitor_);
+      // CP Linking
       ibook.setCurrentFolder(dirName + "/" + label_TSToCPLinking_.label());
-      histoProducerAlgo_->bookTracksterCPLinkingHistos(ibook, histograms.histoProducerAlgo);
+      histoProducerAlgo_->bookTracksterSTSHistos(ibook, histograms.histoProducerAlgo, 0);
+      // SimTracksters Pattern Recognition
+      ibook.setCurrentFolder(dirName + "/" + label_TSToSTSPR_.label());
+      histoProducerAlgo_->bookTracksterSTSHistos(ibook, histograms.histoProducerAlgo, 1);
     }
   }  //end of booking Tracksters loop
 }

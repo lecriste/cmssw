@@ -49,6 +49,7 @@ hgcalValidator = DQMEDAnalyzer(
     #Trackster related plots
     doTrackstersPlots = cms.untracked.bool(True),
     label_TSToCPLinking = cms.InputTag("TSToCP_linking"),
+    label_TSToSTSPR = cms.InputTag("TSToSTS_patternRecognition"),
 
     #The cumulative material budget in front of each layer. To be more specific, it
     #is the material budget just in front of the active material (not including it).
