@@ -1575,6 +1575,9 @@ _common_score.update(_legend_common)
 _score_caloparticle_to_tracksters = PlotGroup("ScoreCaloParticlesToTracksters", [
         Plot("Score_caloparticle2trackster", **_common_score)
         ], ncols=1)
+_score_simtrackster_to_tracksters = PlotGroup("ScoreSimTrackstersToTracksters", [
+        Plot("Score_simtrackster2trackster", **_common_score)
+        ], ncols=1)
 
 _common_score = {#"title": "Score Trackster to CaloParticles",
                  "stat": False,
@@ -1590,6 +1593,9 @@ _common_score.update(_legend_common)
 _score_trackster_to_caloparticles = PlotGroup("ScoreTrackstersToCaloParticles", [
         Plot("Score_trackster2caloparticle", **_common_score)
         ], ncols=1)
+_score_trackster_to_simtracksters = PlotGroup("ScoreTrackstersToSimTracksters", [
+        Plot("Score_trackster2simtrackster", **_common_score)
+        ], ncols=1)
 
 _common_shared= {"title": "Shared Energy CaloParticle To Trackster ",
                  "stat": False,
@@ -1604,6 +1610,7 @@ _common_shared["xmax"] = 4.0
 _shared_plots.extend([Plot("SharedEnergy_caloparticle2trackster_vs_eta", xtitle="CaloParticle #eta", **_common_shared)])
 _shared_plots.extend([Plot("SharedEnergy_caloparticle2trackster_vs_phi", xtitle="CaloParticle #phi", **_common_shared)])
 _sharedEnergy_caloparticle_to_trackster = PlotGroup("SharedEnergy_CaloParticleToTrackster", _shared_plots, ncols=3)
+_sharedEnergy_simtrackster_to_trackster = PlotGroup("SharedEnergy_SimTracksterToTrackster", _shared_plots, ncols=3)
 
 _common_shared= {"title": "Shared Energy Trackster To CaloParticle ",
                  "stat": False,
@@ -1618,6 +1625,7 @@ _common_shared["xmax"] = 4.0
 _shared_plots2.extend([Plot("SharedEnergy_trackster2caloparticle_vs_eta", xtitle="Trackster #eta", **_common_shared)])
 _shared_plots2.extend([Plot("SharedEnergy_trackster2caloparticle_vs_phi", xtitle="Trackster #phi", **_common_shared)])
 _sharedEnergy_trackster_to_caloparticle = PlotGroup("SharedEnergy_TracksterToCaloParticle", _shared_plots2, ncols=3)
+_sharedEnergy_trackster_to_simtrackster = PlotGroup("SharedEnergy_TracksterToSimTrackster", _shared_plots2, ncols=3)
 
 
 _common_assoc = {#"title": "Cell Association Table",
@@ -1668,9 +1676,11 @@ _common_energy_score = dict(removeEmptyBins=True, xbinlabelsize=10, xbinlabelopt
 _common_energy_score["ymax"] = 1.
 _common_energy_score["xmax"] = 1.0
 _energyscore_cp2ts = PlotOnSideGroup("Energy_vs_Score_CaloParticlesToTracksters", Plot("Energy_vs_Score_caloparticle2trackster", drawStyle="COLZ", adjustMarginRight=0.1, **_common_energy_score), ncols=1)
+_energyscore_sts2ts = PlotOnSideGroup("Energy_vs_Score_SimTrackstersToTracksters", Plot("Energy_vs_Score_simtrackster2trackster", drawStyle="COLZ", adjustMarginRight=0.1, **_common_energy_score), ncols=1)
 _common_energy_score["ymax"] = 1.
 _common_energy_score["xmax"] = 1.0
 _energyscore_ts2cp = PlotOnSideGroup("Energy_vs_Score_TrackstersToCaloParticles", Plot("Energy_vs_Score_trackster2caloparticle", drawStyle="COLZ", adjustMarginRight=0.1, **_common_energy_score), ncols=1)
+_energyscore_ts2sts = PlotOnSideGroup("Energy_vs_Score_TrackstersToSimTracksters", Plot("Energy_vs_Score_trackster2simtrackster", drawStyle="COLZ", adjustMarginRight=0.1, **_common_energy_score), ncols=1)
 
 #Coming back to the usual box definition
 _common = {"stat": True, "drawStyle": "hist", "staty": 0.65 }
@@ -2460,6 +2470,19 @@ _trackstersToCPLinkPlots = [
   _energyscore_ts2cp,
 ]
 
+_trackstersToSTSPRPlots = [
+  _efficiencies,
+  _purities,
+  _duplicates,
+  _fakes,
+  _merges,
+  _score_simtrackster_to_tracksters,
+  _score_trackster_to_simtracksters,
+  _sharedEnergy_simtrackster_to_trackster,
+  _sharedEnergy_trackster_to_simtrackster,
+  _energyscore_sts2ts,
+  _energyscore_ts2sts,
+]
 hgcalTrackstersPlotter = Plotter()
 def append_hgcalTrackstersPlots(collection = 'ticlTrackstersMerge', name_collection = "TrackstersMerge"):
   # Appending generic plots for Tracksters
@@ -2482,7 +2505,7 @@ def append_hgcalTrackstersPlots(collection = 'ticlTrackstersMerge', name_collect
   hgcalTrackstersPlotter.append(collection, [
               _hgcalFolders(collection + "/" + tsToSTS_patternRec)
               ], PlotFolder(
-              *_trackstersToCPLinkPlots,
+              *_trackstersToSTSPRPlots,
               loopSubFolders=False,
               purpose=PlotPurpose.Timing, page=tsToSTS_patternRec.replace('TSToSTS_','TICL-'), section=name_collection))
 
