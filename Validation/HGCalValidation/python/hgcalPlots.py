@@ -17,7 +17,7 @@ import Validation.RecoTrack.plotting.validation as validation
 import Validation.RecoTrack.plotting.html as html
 
 from Validation.HGCalValidation.HGCalValidator_cfi import hgcalValidator
-from Validation.HGCalValidation.PostProcessorHGCAL_cfi import tsToCP_linking, lcToCP_linking
+from Validation.HGCalValidation.PostProcessorHGCAL_cfi import lcToCP_linking, tsToCP_linking, tsToSTS_patternRec
 
 #To be able to spot any issues both in -z and +z a layer id was introduced
 #that spans from 0 to 103 for hgcal_v9 geometry. The mapping for hgcal_v9 is:
@@ -2479,6 +2479,14 @@ def append_hgcalTrackstersPlots(collection = 'ticlTrackstersMerge', name_collect
               *_trackstersToCPLinkPlots,
               loopSubFolders=False,
               purpose=PlotPurpose.Timing, page=tsToCP_linking.replace('TSToCP_','TICL-'), section=name_collection))
+
+  # Appending plots for Tracksters Pattern Recognition
+  hgcalTrackstersPlotter.append(collection, [
+              _hgcalFolders(collection + "/" + tsToSTS_patternRec)
+              ], PlotFolder(
+              *_trackstersToCPLinkPlots,
+              loopSubFolders=False,
+              purpose=PlotPurpose.Timing, page=tsToSTS_patternRec.replace('TSToSTS_','TICL-'), section=name_collection))
 
   #We append here two PlotFolder because we want the text to be in percent
   #and the number of events are different in zplus and zminus
