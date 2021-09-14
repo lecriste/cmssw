@@ -26,6 +26,7 @@ HGCalValidator::HGCalValidator(const edm::ParameterSet& pset)
       label_layerClustersPlots_(pset.getParameter<edm::InputTag>("label_layerClusterPlots")),
       label_LCToCPLinking_(pset.getParameter<edm::InputTag>("label_LCToCPLinking")),
       doTrackstersPlots_(pset.getUntrackedParameter<bool>("doTrackstersPlots")),
+      label_TS_(pset.getParameter<edm::InputTag>("label_TS")),
       label_TSToCPLinking_(pset.getParameter<edm::InputTag>("label_TSToCPLinking")),
       label_TSToSTSPR_(pset.getParameter<edm::InputTag>("label_TSToSTSPR")),
       label_clustersmask(pset.getParameter<std::vector<edm::InputTag>>("LayerClustersInputMask")),
@@ -208,6 +209,7 @@ void HGCalValidator::bookHistograms(DQMStore::IBooker& ibook,
     //Booking histograms concerning HGCal tracksters
     if (doTrackstersPlots_) {
       // Generic histos
+      ibook.setCurrentFolder(dirName + "/" + label_TS_.label());
       histoProducerAlgo_->bookTracksterHistos(ibook, histograms.histoProducerAlgo, totallayers_to_monitor_);
       // CP Linking
       ibook.setCurrentFolder(dirName + "/" + label_TSToCPLinking_.label());

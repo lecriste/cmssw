@@ -2319,8 +2319,6 @@ def append_hgcalLayerClustersPlots(collection = hgcalValidator.label_layerCluste
                 purpose=PlotPurpose.Timing, page=layerClustersLabel, section=reg))
 
 #=================================================================================================
-def _hgcalsimClustersFolders(lastDirName):
-    return "DQMData/Run 1/HGCAL/Run summary/HGCalValidator/" + hgcalValidator.label_SimClusters._InputTag__moduleLabel + "/"+lastDirName
 
 sc_clusterlevel = [
   # number of layer clusters per event in a) 120um, b) 200um, c) 300um, d) scint
@@ -2414,14 +2412,14 @@ hgcalSimClustersPlotter = Plotter()
 def append_hgcalSimClustersPlots(collection, name_collection):
   if collection == hgcalValidator.label_SimClustersLevel._InputTag__moduleLabel:
       hgcalSimClustersPlotter.append(collection, [
-                  _hgcalsimClustersFolders(collection)
+                  _hgcalFolders(hgcalValidator.label_SimClusters._InputTag__moduleLabel +"/"+ collection)
                   ], PlotFolder(
                   *sc_clusterlevel,
                   loopSubFolders=False,
                   purpose=PlotPurpose.Timing, page="SimClusters", section=name_collection))
   else:
       hgcalSimClustersPlotter.append(collection, [
-                  _hgcalsimClustersFolders(collection)
+                  _hgcalFolders(hgcalValidator.label_SimClusters._InputTag__moduleLabel +"/"+collection)
                   ], PlotFolder(
                   *sc_ticltracksters,
                   loopSubFolders=False,
@@ -2466,13 +2464,13 @@ hgcalTrackstersPlotter = Plotter()
 def append_hgcalTrackstersPlots(collection = 'ticlTrackstersMerge', name_collection = "TrackstersMerge"):
   # Appending generic plots for Tracksters
   hgcalTrackstersPlotter.append(collection, [
-              _hgcalFolders(collection)
+              _hgcalFolders(collection+ "/" + hgcalValidator.label_TS._InputTag__moduleLabel)
               ], PlotFolder(
               *_trackstersPlots,
               loopSubFolders=False,
               purpose=PlotPurpose.Timing, page="Tracksters", section=name_collection))
 
-  # Appending plots for Tracksters to CP linking
+  # Appending plots for Tracksters-CP linking
   hgcalTrackstersPlotter.append(collection, [
               _hgcalFolders(collection + "/" + tsToCP_linking)
               ], PlotFolder(

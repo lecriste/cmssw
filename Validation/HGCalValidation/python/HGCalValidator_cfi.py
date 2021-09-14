@@ -48,6 +48,7 @@ hgcalValidator = DQMEDAnalyzer(
     label_LCToCPLinking = cms.InputTag("LCToCP_association"),
     #Trackster related plots
     doTrackstersPlots = cms.untracked.bool(True),
+    label_TS = cms.InputTag("Morphology"),
     label_TSToCPLinking = cms.InputTag("TSToCP_linking"),
     label_TSToSTSPR = cms.InputTag("TSToSTS_patternRecognition"),
 
