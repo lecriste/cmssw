@@ -17,7 +17,7 @@ import Validation.RecoTrack.plotting.validation as validation
 import Validation.RecoTrack.plotting.html as html
 
 from Validation.HGCalValidation.HGCalValidator_cfi import hgcalValidator
-from Validation.HGCalValidation.PostProcessorHGCAL_cfi import lcToCP_linking, tsToCP_linking, tsToSTS_patternRec
+from Validation.HGCalValidation.PostProcessorHGCAL_cfi import lcToCP_linking, simDict, tsToCP_linking, tsToSTS_patternRec
 
 #To be able to spot any issues both in -z and +z a layer id was introduced
 #that spans from 0 to 103 for hgcal_v9 geometry. The mapping for hgcal_v9 is:
@@ -1642,35 +1642,44 @@ _cell_association_table = PlotGroup("cellAssociation_table", [
         Plot("cellAssociation_perlayer{:02d}".format(i), xtitle="Layer {:02d} in z-".format(i%maxlayerzm+1) if (i<maxlayerzm) else "Layer {:02d} in z+".format(i%maxlayerzm+1), **_common_assoc) for i in range(0,maxlayerzm)
         ], ncols=8 )
 
+# Trackster plots
 _common_eff = {"stat": False, "legend": False, "xbinlabelsize": 14, "xbinlabeloption": "d", "ymin": 0.0, "ymax": 1.1}
-_effplots = [Plot("effic_eta", xtitle="", **_common_eff)]
-_effplots.extend([Plot("effic_phi", xtitle="", **_common_eff)])
-_effplots.extend([Plot("globalEfficiencies", xtitle="", **_common_eff)])
-_efficiencies = PlotGroup("Efficiencies", _effplots, ncols=3)
-
 _common_purity = {"stat": False, "legend": False, "xbinlabelsize": 14, "xbinlabeloption": "d", "ymin": 0.0, "ymax": 1.1}
-_purityplots = [Plot("purity_eta", xtitle="", **_common_purity)]
-_purityplots.extend([Plot("purity_phi", xtitle="", **_common_purity)])
-_purityplots.extend([Plot("globalEfficiencies", xtitle="", **_common_purity)])
-_purities = PlotGroup("Purities", _purityplots, ncols=3)
-
 _common_dup = {"stat": False, "legend": False, "xbinlabelsize": 14, "xbinlabeloption": "d", "ymin": 0.0, "ymax": 1.1}
-_dupplots = [Plot("duplicate_eta", xtitle="", **_common_dup)]
-_dupplots.extend([Plot("duplicate_phi", xtitle="", **_common_dup)])
-_dupplots.extend([Plot("globalEfficiencies", xtitle="", **_common_dup)])
-_duplicates = PlotGroup("Duplicates", _dupplots, ncols=3)
-
 _common_fake = {"stat": False, "legend": False, "xbinlabelsize": 14, "xbinlabeloption": "d", "ymin": 0.0, "ymax": 1.1}
-_fakeplots = [Plot("fake_eta", xtitle="", **_common_fake)]
-_fakeplots.extend([Plot("fake_phi", xtitle="", **_common_fake)])
-_fakeplots.extend([Plot("globalEfficiencies", xtitle="", **_common_fake)])
-_fakes = PlotGroup("FakeRate", _fakeplots, ncols=3)
-
 _common_merge = {"stat": False, "legend": False, "xbinlabelsize": 14, "xbinlabeloption": "d", "ymin": 0.0, "ymax": 1.1}
-_mergeplots = [Plot("merge_eta", xtitle="", **_common_merge)]
-_mergeplots.extend([Plot("merge_phi", xtitle="", **_common_merge)])
-_mergeplots.extend([Plot("globalEfficiencies", xtitle="", **_common_merge)])
-_merges = PlotGroup("MergeRate", _mergeplots, ncols=3)
+
+_efficiencies = []
+_purities = []
+_duplicates = []
+_fakes = []
+_merges = []
+for val in simDict:
+    _effplots = [Plot("effic_eta"+simDict[val], xtitle="", **_common_eff)]
+    _effplots.extend([Plot("effic_phi"+simDict[val], xtitle="", **_common_eff)])
+    _effplots.extend([Plot("globalEfficiencies", xtitle="", **_common_eff)])
+    _efficiencies.append(PlotGroup("Efficiencies"+simDict[val], _effplots, ncols=3))
+
+    _purityplots = [Plot("purity_eta"+simDict[val], xtitle="", **_common_purity)]
+    _purityplots.extend([Plot("purity_phi"+simDict[val], xtitle="", **_common_purity)])
+    _purityplots.extend([Plot("globalEfficiencies", xtitle="", **_common_purity)])
+    _purities.append(PlotGroup("Purities"+simDict[val], _purityplots, ncols=3))
+
+    _dupplots = [Plot("duplicate_eta"+simDict[val], xtitle="", **_common_dup)]
+    _dupplots.extend([Plot("duplicate_phi"+simDict[val], xtitle="", **_common_dup)])
+    _dupplots.extend([Plot("globalEfficiencies", xtitle="", **_common_dup)])
+    _duplicates.append(PlotGroup("Duplicates"+simDict[val], _dupplots, ncols=3))
+
+    _fakeplots = [Plot("fake_eta"+simDict[val], xtitle="", **_common_fake)]
+    _fakeplots.extend([Plot("fake_phi"+simDict[val], xtitle="", **_common_fake)])
+    _fakeplots.extend([Plot("globalEfficiencies", xtitle="", **_common_fake)])
+    _fakes.append(PlotGroup("FakeRate"+simDict[val], _fakeplots, ncols=3))
+
+    _mergeplots = [Plot("merge_eta"+simDict[val], xtitle="", **_common_merge)]
+    _mergeplots.extend([Plot("merge_phi"+simDict[val], xtitle="", **_common_merge)])
+    _mergeplots.extend([Plot("globalEfficiencies", xtitle="", **_common_merge)])
+    _merges.append(PlotGroup("MergeRate"+simDict[val], _mergeplots, ncols=3))
+
 
 _common_energy_score = dict(removeEmptyBins=True, xbinlabelsize=10, xbinlabeloption="d")
 _common_energy_score["ymax"] = 1.
@@ -2457,11 +2466,11 @@ _trackstersPlots = [
 ]
 
 _trackstersToCPLinkPlots = [
-  _efficiencies,
-  _purities,
-  _duplicates,
-  _fakes,
-  _merges,
+  _efficiencies[0],
+  _purities[0],
+  _duplicates[0],
+  _fakes[0],
+  _merges[0],
   _score_caloparticle_to_tracksters,
   _score_trackster_to_caloparticles,
   _sharedEnergy_caloparticle_to_trackster,
@@ -2471,11 +2480,11 @@ _trackstersToCPLinkPlots = [
 ]
 
 _trackstersToSTSPRPlots = [
-  _efficiencies,
-  _purities,
-  _duplicates,
-  _fakes,
-  _merges,
+  _efficiencies[1],
+  _purities[1],
+  _duplicates[1],
+  _fakes[1],
+  _merges[1],
   _score_simtrackster_to_tracksters,
   _score_trackster_to_simtracksters,
   _sharedEnergy_simtrackster_to_trackster,
