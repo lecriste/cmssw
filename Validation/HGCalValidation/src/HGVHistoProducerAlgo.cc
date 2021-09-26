@@ -2531,8 +2531,9 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       } else {
         auto maxCPEnergyInTS = 0.f;
         auto maxCPId = -1;
-        for (unsigned int iSC=0; iSC<hit_find_in_STS->second.size(); iSC++) {
+        for (unsigned int iSC=0; iSC < hit_find_in_STS->second.size(); iSC++) {
         for (const auto& h : hit_find_in_STS->second[iSC]) {
+          std::cout << (rhFraction < h.fraction ? "rhFraction" : "h.fraction") << std::endl ;
           const auto shared_fraction = std::min(rhFraction, h.fraction);
           //We are in the case where there are calo particles with simhits connected via detid with the rechit under study
           //So, from all layers clusters, find the rechits that are connected with a calo particle and save/calculate the
@@ -2763,11 +2764,17 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     std::vector<unsigned int> cpId_tstId_related;
 
     float CPenergy = 0.f;
-    for (auto& iSC : sCOnLayer[cpId]) {
+    for (unsigned int iSC=0; iSC < sCOnLayer[cpId].size(); iSC++) {
+      if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
+        const auto& simCluster = *(cP[cpId].simClusters()[iSC]);
+        if (simTS[iSTS].seedIndex()  !=  &simCluster - &sC[0]) // probably not the right comparison
+          continue;
+      }
+
     for (unsigned int layerId = 0; layerId < layers * 2; ++layerId) {
-      const unsigned int CPNumberOfHits = iSC[layerId].hits_and_fractions.size();
+      const unsigned int CPNumberOfHits = sCOnLayer[cpId][iSC][layerId].hits_and_fractions.size();
       //Below gives the CP energy related to Trackster per layer.
-      CPenergy += iSC[layerId].energy;
+      CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
       if (CPNumberOfHits == 0)
         continue;
       int tstWithMaxEnergyInCP = -1;
@@ -2775,7 +2782,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       float maxEnergyTSperlayerinCP = 0.f;
       float CPEnergyFractionInTSperlayer = 0.f;
       //Remember and not confused by name. layerClusterIdToEnergyAndScore contains the Trackster id.
-      for (const auto& tst : iSC[layerId].layerClusterIdToEnergyAndScore) {
+      for (const auto& tst : sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore) {
         if (tst.second.first > maxEnergyTSperlayerinCP) {
           maxEnergyTSperlayerinCP = tst.second.first;
           tstWithMaxEnergyInCP = tst.first;
@@ -2796,8 +2803,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                  << CPEnergyFractionInTSperlayer << "\n";
 
       for (unsigned int iHit = 0; iHit < CPNumberOfHits; ++iHit) {
-        const auto& cp_hitDetId = iSC[layerId].hits_and_fractions[iHit].first;
-        const auto& cpFraction = iSC[layerId].hits_and_fractions[iHit].second;
+        const auto& cp_hitDetId = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].first;
+        const auto& cpFraction = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].second;
 
         bool hitWithNoTS = false;
         if (cpFraction == 0.f)
@@ -2808,7 +2815,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
         auto itcheck = hitMap.find(cp_hitDetId);
         const HGCRecHit* hit = itcheck->second;
         float hitEnergyWeight = hit->energy() * hit->energy();
-        for (auto& tsPair : iSC[layerId].layerClusterIdToEnergyAndScore) {
+        for (auto& tsPair : sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore) {
           const unsigned int tracksterId = tsPair.first;
           if (std::find(std::begin(cpId_tstId_related), std::end(cpId_tstId_related), tracksterId) ==
               std::end(cpId_tstId_related)) {
@@ -2842,12 +2849,12 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
         }
       }  //end of loop through sim hits of current calo particle
 
-      if (iSC[layerId].layerClusterIdToEnergyAndScore.empty())
+      if (sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore.empty())
         LogDebug("HGCalValidator") << "CP Id: \t" << cpId << "\t TS id:\t-1 "
                                    << "\t layer \t " << layerId << " Sub score in \t -1"
                                    << "\n";
 
-      for (const auto& tsPair : iSC[layerId].layerClusterIdToEnergyAndScore) {
+      for (const auto& tsPair : sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore) {
         // 3d score here without the denominator at this point
         if (score3d[cpId][tsPair.first] == FLT_MAX) {
           score3d[cpId][tsPair.first] = 0.f;
