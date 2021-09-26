@@ -2735,17 +2735,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
 
   std::unordered_map<unsigned int, std::vector<float>> score3d;
   std::unordered_map<unsigned int, std::vector<float>> tstSharedEnergy;
-  std::unordered_map<unsigned int, std::vector<float>> tstSharedEnergyFrac;
 
   for (unsigned int iCP = 0; iCP < nCaloParticles; ++iCP) {
     auto cpIndex = cPIndices[iCP];
     score3d[cpIndex].resize(nTracksters);
     tstSharedEnergy[cpIndex].resize(nTracksters);
-    tstSharedEnergyFrac[cpIndex].resize(nTracksters);
     for (unsigned int j = 0; j < nTracksters; ++j) {
       score3d[cpIndex][j] = FLT_MAX;
       tstSharedEnergy[cpIndex][j] = 0.f;
-      tstSharedEnergyFrac[cpIndex][j] = 0.f;
     }
   }
 
@@ -2851,7 +2848,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                    << "\n";
 
       for (const auto& tsPair : iSC[layerId].layerClusterIdToEnergyAndScore) {
-        //3d score here without the denominator at this point
+        // 3d score here without the denominator at this point
         if (score3d[cpId][tsPair.first] == FLT_MAX) {
           score3d[cpId][tsPair.first] = 0.f;
         }
@@ -2884,25 +2881,25 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     // avoid "over counting".
     bool cp_considered_efficient = false;
     for (const auto tstId : cpId_tstId_related) {
-      //Now time for the denominator
+      // Now time for the denominator
       score3d[cpId][tstId] = score3d[cpId][tstId] * invCPEnergyWeight;
-      tstSharedEnergyFrac[cpId][tstId] = (tstSharedEnergy[cpId][tstId] / CPenergy);
+      const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][tstId] / CPenergy;
 
       std::cout << "\nCP Id: \t" << cpId << "\t TS id: \t" << tstId << "\t score \t"  //
                                  << score3d[cpId][tstId]
                                  << "\tinvCPEnergyWeight \t" << invCPEnergyWeight
                                  << "\tTrackste energy: \t" << tracksters[tstId].raw_energy()
                                  << "\tshared energy:\t" << tstSharedEnergy[cpId][tstId]
-                                 << "\tshared energy fraction:\t" << tstSharedEnergyFrac[cpId][tstId]
+                                 << "\tshared energy fraction:\t" << tstSharedEnergyFrac
                                  << "\tCPenergy:\t" << CPenergy <<std::endl ;
 
       histograms.h_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][tstId]);
 
-      histograms.h_sharedenergy_caloparticle2trackster[i][count]->Fill(tstSharedEnergyFrac[cpId][tstId]);
+      histograms.h_sharedenergy_caloparticle2trackster[i][count]->Fill(tstSharedEnergyFrac);
       histograms.h_energy_vs_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][tstId],
-                                                                          tstSharedEnergyFrac[cpId][tstId]);
+                                                                          tstSharedEnergyFrac);
       // Fill the numerator for the efficiency calculation. The efficiency is computed by considering the energy shared between a Trackster and a _corresponding_ caloParticle. The threshold is configurable via python.
-      if (!cp_considered_efficient && tstSharedEnergyFrac[cpId][tstId] >= minTSTSharedEneFracEfficiency_) {
+      if (!cp_considered_efficient  &&  tstSharedEnergyFrac >= minTSTSharedEneFracEfficiency_) {
         cp_considered_efficient = true;
         histograms.h_numEff_caloparticle_eta[i][count]->Fill(simTS[iSTS].barycenter().eta());
         histograms.h_numEff_caloparticle_phi[i][count]->Fill(simTS[iSTS].barycenter().phi());
@@ -2919,6 +2916,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       histograms.h_num_caloparticle_phi[i][count]->Fill(simTS[iSTS].barycenter().phi());
       auto best = std::min_element(std::begin(score3d[cpId]), std::end(score3d[cpId]));
       auto bestTstId = std::distance(std::begin(score3d[cpId]), best);
+      const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][bestTstId] / CPenergy ;
 
       histograms.h_sharedenergy_caloparticle2trackster_vs_eta[i][count]->Fill(
           simTS[iSTS].barycenter().eta(), tracksters[bestTstId].raw_energy() / CPenergy);
@@ -2927,8 +2925,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       LogDebug("HGCalValidator") << count << " " << simTS[iSTS].barycenter().eta() << " "
                                  << simTS[iSTS].barycenter().phi() << " " << tracksters[bestTstId].raw_energy() << " "
                                  << CPenergy << " " << (tracksters[bestTstId].raw_energy() / CPenergy) << " "
-                                 << tstSharedEnergyFrac[cpId][bestTstId] << '\n';
-      histograms.h_sharedenergy_caloparticle2trackster_assoc[i][count]->Fill(tstSharedEnergyFrac[cpId][bestTstId]);
+                                 << tstSharedEnergyFrac << '\n';
+      histograms.h_sharedenergy_caloparticle2trackster_assoc[i][count]->Fill(tstSharedEnergyFrac);
 
       if (assocDup >= 2) {
         auto match = std::find_if(std::begin(score3d[cpId]), std::end(score3d[cpId]), is_assoc);
