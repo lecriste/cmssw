@@ -2359,7 +2359,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     for (unsigned int iSC=0; iSC<simClusterRefVector.size(); iSC++) {
       if (simTS[iSTS].seedID() != cPHandle_id) {// SimTrackster from SimCluster
         const auto& simCluster = *(simClusterRefVector[iSC]);
-        if (simTS[iSTS].seedIndex()  !=  simCluster - &sC[0]) // probably not the right comparison
+        if (simTS[iSTS].seedIndex()  !=  &simCluster - &sC[0]) // probably not the right comparison
           continue;     
       }
 
