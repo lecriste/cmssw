@@ -316,6 +316,7 @@ public:
                              const ticl::TracksterCollection& simTS,
                              const ticl::TracksterCollection& simTS_fromCP,
                              std::map<uint, std::vector<uint>> const& simTrackstersMap,
+                             std::vector<SimCluster> const& sC,
                              const edm::ProductID& cPHandle_id,
                              std::vector<CaloParticle> const& cP,
                              std::vector<size_t> const& cPIndices,
