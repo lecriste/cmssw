@@ -2413,7 +2413,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
             found->second += it_haf.second;
             std::cout << "\ncPOnLayer: found->second = " << found->second << ", it_haf.second = " << it_haf.second << std::endl ;
           } else {
-            cPOnLayer[cpId][cpLayerId].emplace_back(hitid, it_haf.second);
+            haf.emplace_back(hitid, it_haf.second);
           }
           // Same for sCOnLayer
           auto& haf_sc = sCOnLayer[cpId][iSC][cpLayerId].hits_and_fractions;
@@ -2423,7 +2423,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
             found_sc->second += it_haf.second;
             std::cout << "\nsCOnLayer: found->second = " << found_sc->second << ", it_haf.second = " << it_haf.second << std::endl ;
           } else {
-            sCOnLayer[cpId][iSC][cpLayerId].hits_and_fractions.emplace_back(hitid, it_haf.second);
+            haf_sc.emplace_back(hitid, it_haf.second);
           }
         }
       }  // end of loop through simhits
