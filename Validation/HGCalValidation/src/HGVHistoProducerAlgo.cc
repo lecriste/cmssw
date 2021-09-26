@@ -2741,12 +2741,12 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
   // only to the selected caloParaticles.
   for (unsigned int iSTS = 0; iSTS < nSimTracksters; ++iSTS) {
     const auto& cpId = getCPId(simTS[iSTS], iSTS, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
+    std::cout << "\niSTS: " << iSTS << ", cpId: " << cpId << std::endl ;
     if (i == 0)
       if (std::find(cPSelectedIndices.begin(), cPSelectedIndices.end(), cpId) == cPSelectedIndices.end()) {
-        std::cout << "\n\nWould SKIP!" ;
+        std::cout << "\nWould SKIP!" << std::endl ;
         //continue;
       }
-    std::cout << "\niSTS: " << iSTS << ", cpId: " << cpId << std::endl ;
 
     //We need to keep the Tracksters ids that are related to
     //CaloParticle under study for the final filling of the score.
@@ -2874,7 +2874,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       score3d[cpId][tstId] = score3d[cpId][tstId] * invCPEnergyWeight;
       tstSharedEnergyFrac[cpId][tstId] = (tstSharedEnergy[cpId][tstId] / CPenergy);
 
-      std::cout << "CP Id: \t" << cpId << "\t TS id: \t" << tstId << "\t score \t"  //
+      std::cout << "\nCP Id: \t" << cpId << "\t TS id: \t" << tstId << "\t score \t"  //
                                  << score3d[cpId][tstId]
                                  << "\tinvCPEnergyWeight \t" << invCPEnergyWeight
                                  << "\tTrackste energy: \t" << tracksters[tstId].raw_energy()
