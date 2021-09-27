@@ -2779,12 +2779,11 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
 
     for (unsigned int layerId = 0; layerId < layers * 2; ++layerId) {
       //std::cout << "layerId: " << layerId << std::endl ;
-      const unsigned int CPNumberOfHits = sCOnLayer[cpId][iSC][layerId].hits_and_fractions.size();
-      /*
-      unsigned int CPNumberOfHits = 0;
-      if (i==0) CPNumberOfHits = cPOnLayer[cpId][layerId].size();
-      else CPNumberOfHits = sCOnLayer[cpId][iSC][layerId].hits_and_fractions.size();
-      */
+      std::vector<std::pair<DetId, float>> haf;
+      if (i==0) haf = cPOnLayer[cpId][layerId];
+      else haf = sCOnLayer[cpId][iSC][layerId].hits_and_fractions;
+      const unsigned int CPNumberOfHits = haf.size();
+
       //Below gives the CP energy related to Trackster per layer.
       CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
       if (CPNumberOfHits == 0)
@@ -2815,16 +2814,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                  << CPEnergyFractionInTSperlayer << "\n";
 
       for (unsigned int iHit = 0; iHit < CPNumberOfHits; ++iHit) {
-        //const auto& cp_hitDetId = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].first;
-        DetId cp_hitDetId = -1;
-        float cpFraction = 0;
-        if (i==0) {
-          cp_hitDetId = cPOnLayer[cpId][layerId][iHit].first;
-          cpFraction = cPOnLayer[cpId][layerId][iHit].second;
-        } else {
-          cp_hitDetId = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].first;
-          cpFraction = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].second;
-        }
+        const auto& cp_hitDetId = haf[iHit].first;
+        const auto& cpFraction = haf[iHit].second;
 
         bool hitWithNoTS = false;
         if (cpFraction == 0.f)
