@@ -2362,7 +2362,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     for (unsigned int iSC=0; iSC<simClusterRefVector.size(); iSC++) {
       if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
         const auto& simCluster = *(simClusterRefVector[iSC]);
-        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0])) // probably not the right comparison
+        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0]))
           continue;     
       }
       auto iSC_val = iSC;
@@ -2773,19 +2773,23 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       //std::cout << "iSC: " << iSC << std::endl ;
       if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
         const auto& simCluster = *(cP[cpId].simClusters()[iSC]);
-        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0])) // probably not the right comparison
+        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0]))
           continue;
       }
 
     for (unsigned int layerId = 0; layerId < layers * 2; ++layerId) {
       //std::cout << "layerId: " << layerId << std::endl ;
+      //Below gives the CP energy related to Trackster per layer.
+      CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
+
+      if (i == 0  &&  iSC > 0) { // For Linking validation we neglect SimCLuster multiplicity
+        continue;
+      }
+
       std::vector<std::pair<DetId, float>> haf;
       if (i==0) haf = cPOnLayer[cpId][layerId];
       else haf = sCOnLayer[cpId][iSC][layerId].hits_and_fractions;
       const unsigned int CPNumberOfHits = haf.size();
-
-      //Below gives the CP energy related to Trackster per layer.
-      CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
       if (CPNumberOfHits == 0)
         continue;
       int tstWithMaxEnergyInCP = -1;
@@ -2861,7 +2865,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       }  //end of loop through sim hits of current calo particle
 
       if (sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore.empty())
-        LogDebug("HGCalValidator") << "CP Id: \t" << cpId << "\t TS id:\t-1 "
+        LogDebug("HGCalValidator") << "SC Id: \t" << cpId << "\t TS id:\t-1 "
                                    << "\t layer \t " << layerId << " Sub score in \t -1"
                                    << "\n";
 
@@ -3211,7 +3215,7 @@ void HGVHistoProducerAlgo::fill_trackster_histos(const Histograms& histograms,
                               layers);
   //std::cout << "\nBETWEEN\n" << std::endl;
   // Pattern recognition
-/*  tracksters_to_SimTracksters(histograms,
+  tracksters_to_SimTracksters(histograms,
                               count,
                               tracksters,
                               layerClusters,
@@ -3225,7 +3229,7 @@ void HGVHistoProducerAlgo::fill_trackster_histos(const Histograms& histograms,
                               cPIndices,
                               cPSelectedIndices,
                               hitMap,
-                              layers);*/
+                              layers);
 }
 
 double HGVHistoProducerAlgo::distance2(const double x1,
