@@ -2362,7 +2362,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     for (unsigned int iSC=0; iSC<simClusterRefVector.size(); iSC++) {
       if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
         const auto& simCluster = *(simClusterRefVector[iSC]);
-        if (simTS[iSTS].seedIndex()  !=  &simCluster - &sC[0]) // probably not the right comparison
+        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0])) // probably not the right comparison
           continue;     
       }
       auto iSC_val = iSC;
@@ -2769,12 +2769,18 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     for (unsigned int iSC=0; iSC < sCOnLayer[cpId].size(); iSC++) {
       if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
         const auto& simCluster = *(cP[cpId].simClusters()[iSC]);
-        if (simTS[iSTS].seedIndex()  !=  &simCluster - &sC[0]) // probably not the right comparison
+        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0])) // probably not the right comparison
           continue;
       }
 
     for (unsigned int layerId = 0; layerId < layers * 2; ++layerId) {
+      std::cout << "layerId: " << layerId << std::endl ;
       const unsigned int CPNumberOfHits = sCOnLayer[cpId][iSC][layerId].hits_and_fractions.size();
+      /*
+      unsigned int CPNumberOfHits = 0;
+      if (i==0) CPNumberOfHits = cPOnLayer[cpId][layerId].size();
+      else CPNumberOfHits = sCOnLayer[cpId][iSC][layerId].hits_and_fractions.size();
+      */
       //Below gives the CP energy related to Trackster per layer.
       CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
       if (CPNumberOfHits == 0)
@@ -2805,8 +2811,16 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                  << CPEnergyFractionInTSperlayer << "\n";
 
       for (unsigned int iHit = 0; iHit < CPNumberOfHits; ++iHit) {
-        const auto& cp_hitDetId = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].first;
-        const auto& cpFraction = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].second;
+        //const auto& cp_hitDetId = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].first;
+        DetId cp_hitDetId = -1;
+        float cpFraction = 0;
+        if (i==0) {
+          cp_hitDetId = cPOnLayer[cpId][layerId][iHit].first;
+          cpFraction = cPOnLayer[cpId][layerId][iHit].second;
+        } else {
+          cp_hitDetId = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].first;
+          cpFraction = sCOnLayer[cpId][iSC][layerId].hits_and_fractions[iHit].second;
+        }
 
         bool hitWithNoTS = false;
         if (cpFraction == 0.f)
