@@ -2290,11 +2290,11 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                                        std::vector<size_t> const& cPSelectedIndices,
                                                        std::unordered_map<DetId, const HGCRecHit*> const& hitMap,
                                                        unsigned int layers) const {
-  auto nTracksters = tracksters.size();
-  auto nSimTracksters = simTS.size();
-  auto nCaloParticles = cPIndices.size();
+  const auto nTracksters = tracksters.size();
+  const auto nSimTracksters = simTS.size();
+  const auto nCaloParticles = cPIndices.size();
 
-  std::unordered_map<DetId, std::vector<std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>>> detIdSimTSId_Map[2];
+  std::unordered_map<DetId, std::vector<std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>>> detIdSimTSId_Map;
   std::unordered_map<DetId, std::vector<HGVHistoProducerAlgo::detIdInfoInTrackster>> detIdToTracksterId_Map;
   std::vector<int> tracksters_fakemerge(nTracksters, 0);
   std::vector<int> tracksters_duplicate(nTracksters, 0);
@@ -2359,7 +2359,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     //take sim clusters
     const SimClusterRefVector& simClusterRefVector = cP[cpId].simClusters();
     //loop through sim clusters
-    for (unsigned int iSC=0; iSC<simClusterRefVector.size(); iSC++) {
+    for (unsigned int iSC=0; iSC < simClusterRefVector.size(); iSC++) {
       if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
         const auto& simCluster = *(simClusterRefVector[iSC]);
         if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0]))
@@ -2373,8 +2373,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
         const auto hitid = (it_haf.first);
         //V9:maps the layers in -z: 0->51 and in +z: 52->103
         //V10:maps the layers in -z: 0->49 and in +z: 50->99
-        int cpLayerId = recHitTools_->getLayerWithOffset(hitid) + layers * ((recHitTools_->zside(hitid) + 1) >> 1) - 1;
-        std::unordered_map<DetId, const HGCRecHit*>::const_iterator itcheck = hitMap.find(hitid);
+        const int cpLayerId = recHitTools_->getLayerWithOffset(hitid) + layers * ((recHitTools_->zside(hitid) + 1) >> 1) - 1;
+        const std::unordered_map<DetId, const HGCRecHit*>::const_iterator itcheck = hitMap.find(hitid);
         //Checks whether the current hit belonging to sim cluster has a reconstructed hit.
         if (itcheck != hitMap.end()) {
           const HGCRecHit* hit = itcheck->second;
@@ -2385,17 +2385,20 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
           //So, keep in mind that in case of multiple CaloParticles contributing in the same cell
           //the fraction is the sum over all calo particles. So, something like:
           //detid: (caloparticle 1, sum of hits fractions in that detid over all cp) , (caloparticle 2, sum of hits fractions in that detid over all cp), (caloparticle 3, sum of hits fractions in that detid over all cp) ...
-          if (detIdSimTSId_Map[i].find(hitid) == detIdSimTSId_Map[i].end()) {
-            detIdSimTSId_Map[i][hitid] = std::vector<std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>>(simClusterRefVector.size());
-            detIdSimTSId_Map[i][hitid][iSC_val].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
+          if (detIdSimTSId_Map.find(hitid) == detIdSimTSId_Map.end()) {
+            detIdSimTSId_Map[hitid] = std::vector<std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>>(simClusterRefVector.size());
+            detIdSimTSId_Map[hitid][iSC_val].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
           } else {
-            auto findHitIt = std::find(detIdSimTSId_Map[i][hitid][iSC_val].begin(),
-                                       detIdSimTSId_Map[i][hitid][iSC_val].end(),
+            if (iSC_val > detIdSimTSId_Map[hitid].size() - 1)
+              detIdSimTSId_Map[hitid].resize(simClusterRefVector.size());
+
+            auto findHitIt = std::find(detIdSimTSId_Map[hitid][iSC_val].begin(),
+                                       detIdSimTSId_Map[hitid][iSC_val].end(),
                                        HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
-            if (findHitIt != detIdSimTSId_Map[i][hitid][iSC_val].end()) {
+            if (findHitIt != detIdSimTSId_Map[hitid][iSC_val].end()) {
               findHitIt->fraction += it_haf.second;
             } else {
-              detIdSimTSId_Map[i][hitid][iSC_val].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
+              detIdSimTSId_Map[hitid][iSC_val].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
             }
           }
           //Since the current hit from sim cluster has a reconstructed hit with the same detid,
@@ -2411,20 +2414,20 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
           auto& haf = cPOnLayer[cpId][cpLayerId];
           auto found = std::find_if(
               std::begin(haf), std::end(haf), [&hitid](const std::pair<DetId, float>& v) { return v.first == hitid; });
-          if (found != haf.end()) {
+          if (found != haf.end())
             found->second += it_haf.second;
-          } else {
+          else
             haf.emplace_back(hitid, it_haf.second);
-          }
+
           // Same for sCOnLayer
           auto& haf_sc = sCOnLayer[cpId][iSC][cpLayerId].hits_and_fractions;
           auto found_sc = std::find_if(
               std::begin(haf_sc), std::end(haf_sc), [&hitid](const std::pair<DetId, float>& v) { return v.first == hitid; });
-          if (found_sc != haf_sc.end()) {
+          if (found_sc != haf_sc.end())
             found_sc->second += it_haf.second;
-          } else {
+          else
             haf_sc.emplace_back(hitid, it_haf.second);
-          }
+
         }
       }  // end of loop through simhits
     }    // end of loop through SimClusters
@@ -2514,7 +2517,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
           HGVHistoProducerAlgo::detIdInfoInTrackster{tstId, tstId, rhFraction});
 
       //Check whether the rechit of the trackster under study has a sim hit in the same cell.
-      auto hit_find_in_STS = detIdSimTSId_Map[i].find(rh_detid);
+      auto hit_find_in_STS = detIdSimTSId_Map.find(rh_detid);
 
       // if the fraction is zero or the hit does not belong to any calo
       // particle, set the caloparticleId for the hit to -1 this will
@@ -2526,7 +2529,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
         hitsToCaloParticleId[hitId] = -2;
         numberOfHaloHitsInTS++;
       }
-      if (hit_find_in_STS == detIdSimTSId_Map[i].end()) {
+      if (hit_find_in_STS == detIdSimTSId_Map.end()) {
         hitsToCaloParticleId[hitId] -= 1;
       } else {
         auto maxCPEnergyInTS = 0.f;
@@ -2668,7 +2671,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       const auto rhFraction = haf.second;
       bool hitWithNoSTS = false;
 
-      if (detIdSimTSId_Map[i].find(rh_detid) == detIdSimTSId_Map[i].end())
+      if (detIdSimTSId_Map.find(rh_detid) == detIdSimTSId_Map.end())
         hitWithNoSTS = true;
       auto itcheck = hitMap.find(rh_detid);
       const HGCRecHit* hit = itcheck->second;
@@ -2677,14 +2680,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       for (auto& stsPair : stsInTrackster[tstId]) {
         float cpFraction = 0.f;
         if (!hitWithNoSTS) {
-          const auto cpId = getCPId(simTS[stsPair.first], stsPair.first, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
-          for (unsigned int iSC=0; iSC < cP[cpId].simClusters().size(); iSC++) {
-            auto findHitIt = std::find(detIdSimTSId_Map[i][rh_detid][iSC].begin(),
-                                       detIdSimTSId_Map[i][rh_detid][iSC].end(),
+          for (const auto& iSC : detIdSimTSId_Map[rh_detid]) {
+            const auto findHitIt = std::find(iSC.begin(),
+                                       iSC.end(),
                                        HGVHistoProducerAlgo::detIdInfoInCluster{stsPair.first, 0.f});
-            if (findHitIt != detIdSimTSId_Map[i][rh_detid][iSC].end()) {
+            if (findHitIt != iSC.end()) {
               cpFraction = findHitIt->fraction;
             }
+      if (i==0) break; // for Linking we neglect the SimCluster granularity
           }
         }
         if (stsPair.second == FLT_MAX) {
@@ -2693,7 +2696,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
         stsPair.second +=
             (rhFraction - cpFraction) * (rhFraction - cpFraction) * hitEnergyWeight * invTracksterEnergyWeight;
       }
-    }  //end of loop through rechits of trackster
+    }  //end of loop through trackster rechits
 
     //In case of a Trackster with some energy but none related CaloParticles print some info.
     if (stsInTrackster[tstId].empty())
@@ -2828,7 +2831,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
           float tstFraction = 0.f;
 
           if (!hitWithNoTS) {
-            auto findHitIt = std::find(detIdToTracksterId_Map[cp_hitDetId].begin(),
+            const auto findHitIt = std::find(detIdToTracksterId_Map[cp_hitDetId].begin(),
                                        detIdToTracksterId_Map[cp_hitDetId].end(),
                                        HGVHistoProducerAlgo::detIdInfoInTrackster{tracksterId, 0, 0.f});
             if (findHitIt != detIdToTracksterId_Map[cp_hitDetId].end())
@@ -2849,7 +2852,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                      << (tstFraction - cpFraction) * (tstFraction - cpFraction) * hitEnergyWeight
                                      << "\t"
                                      << "currect score numerator:\t" << tsPair.second.second << "\t"
-                                     << "shared Energy:\t" << tsPair.second.first << '\n';
+                                     << "shared Energy:\t" << tsPair.second.first << std::endl;
         }
       }  //end of loop through sim hits of current calo particle
 
