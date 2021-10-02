@@ -1535,7 +1535,7 @@ void HGVHistoProducerAlgo::layerClusters_to_CaloParticles(const Histograms& hist
           } else {
             auto findHitIt = std::find(detIdToCaloParticleId_Map[hitid].begin(),
                                        detIdToCaloParticleId_Map[hitid].end(),
-                                       HGVHistoProducerAlgo::detIdInfoInCluster{cpId, it_haf.second});
+                                       HGVHistoProducerAlgo::detIdInfoInCluster{cpId, 0.f}); // only the first element is used for the matching (overloaded operator==)
             if (findHitIt != detIdToCaloParticleId_Map[hitid].end()) {
               findHitIt->fraction += it_haf.second;
             } else {
@@ -1575,8 +1575,7 @@ void HGVHistoProducerAlgo::layerClusters_to_CaloParticles(const Histograms& hist
       std::unordered_map<DetId, const HGCRecHit*>::const_iterator itcheck = hitMap.find(rh_detid);
       const HGCRecHit* hit = itcheck->second;
 
-      auto hit_find_in_LC = detIdToLayerClusterId_Map.find(rh_detid);
-      if (hit_find_in_LC == detIdToLayerClusterId_Map.end()) {
+      if (detIdToLayerClusterId_Map.find(rh_detid) == detIdToLayerClusterId_Map.end()) {
         detIdToLayerClusterId_Map[rh_detid] = std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>();
       }
       detIdToLayerClusterId_Map[rh_detid].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{lcId, rhFraction});
@@ -2366,7 +2365,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
           continue;     
       }
       auto iSC_val = iSC;
-      if (i==0) iSC_val = 0; // for Linking we neglect the SimCluster granularity
+      if (i==0) iSC_val = 0; // for Linking we ignore the SimCluster granularity
 
       const auto& hits_and_fractions = simClusterRefVector[iSC]->hits_and_fractions();
       for (const auto& it_haf : hits_and_fractions) {
@@ -2389,14 +2388,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
             detIdSimTSId_Map[hitid] = std::vector<std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>>(simClusterRefVector.size());
             detIdSimTSId_Map[hitid][iSC_val].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
           } else {
-            if (iSC_val > detIdSimTSId_Map[hitid].size() - 1)
+            if (iSC_val > detIdSimTSId_Map[hitid].size() - 1) // may happen if a CP has more SCs than a previous CP and they share an hitid
               detIdSimTSId_Map[hitid].resize(simClusterRefVector.size());
 
-            auto findHitIt = std::find(detIdSimTSId_Map[hitid][iSC_val].begin(),
+            auto findSTSIt = std::find(detIdSimTSId_Map[hitid][iSC_val].begin(),
                                        detIdSimTSId_Map[hitid][iSC_val].end(),
-                                       HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
-            if (findHitIt != detIdSimTSId_Map[hitid][iSC_val].end()) {
-              findHitIt->fraction += it_haf.second;
+                                       HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second}); // only the first element is used for the matching (overloaded operator==)
+            if (findSTSIt != detIdSimTSId_Map[hitid][iSC_val].end()) {
+              findSTSIt->fraction += it_haf.second;
             } else {
               detIdSimTSId_Map[hitid][iSC_val].emplace_back(HGVHistoProducerAlgo::detIdInfoInCluster{iSTS, it_haf.second});
             }
@@ -2427,7 +2426,6 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
             found_sc->second += it_haf.second;
           else
             haf_sc.emplace_back(hitid, it_haf.second);
-
         }
       }  // end of loop through simhits
     }    // end of loop through SimClusters
@@ -2509,15 +2507,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       //So, something like:
       //detid: (layer cluster 1, hit fraction) , (layer cluster 2, hit fraction), (layer cluster 3, hit fraction) ...
       //here comparing with the calo particle map above the
-      auto hit_find_in_LC = detIdToTracksterId_Map.find(rh_detid);
-      if (hit_find_in_LC == detIdToTracksterId_Map.end()) {
+      if (detIdToTracksterId_Map.find(rh_detid) == detIdToTracksterId_Map.end()) {
         detIdToTracksterId_Map[rh_detid] = std::vector<HGVHistoProducerAlgo::detIdInfoInTrackster>();
       }
       detIdToTracksterId_Map[rh_detid].emplace_back(
           HGVHistoProducerAlgo::detIdInfoInTrackster{tstId, tstId, rhFraction});
 
       //Check whether the rechit of the trackster under study has a sim hit in the same cell.
-      auto hit_find_in_STS = detIdSimTSId_Map.find(rh_detid);
+      const auto hit_find_in_STS = detIdSimTSId_Map.find(rh_detid);
 
       // if the fraction is zero or the hit does not belong to any calo
       // particle, set the caloparticleId for the hit to -1 this will
@@ -2641,7 +2638,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     // find the unique CaloParticles id contributing to the Tracksters
     //stsInTrackster[trackster][STSids]
     std::sort(stsInTrackster[tstId].begin(), stsInTrackster[tstId].end());
-    auto last = std::unique(stsInTrackster[tstId].begin(), stsInTrackster[tstId].end());
+    const auto last = std::unique(stsInTrackster[tstId].begin(), stsInTrackster[tstId].end());
     stsInTrackster[tstId].erase(last, stsInTrackster[tstId].end());
 
     if (tracksters[tstId].raw_energy() == 0. && !stsInTrackster[tstId].empty()) {
@@ -2681,13 +2678,13 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
         float cpFraction = 0.f;
         if (!hitWithNoSTS) {
           for (const auto& iSC : detIdSimTSId_Map[rh_detid]) {
-            const auto findHitIt = std::find(iSC.begin(),
+            const auto findSTSIt = std::find(iSC.begin(),
                                        iSC.end(),
-                                       HGVHistoProducerAlgo::detIdInfoInCluster{stsPair.first, 0.f});
-            if (findHitIt != iSC.end()) {
-              cpFraction = findHitIt->fraction;
+                                       HGVHistoProducerAlgo::detIdInfoInCluster{stsPair.first, 0.f}); // only the first element is used for the matching (overloaded operator==)
+            if (findSTSIt != iSC.end()) {
+              cpFraction = findSTSIt->fraction;
             }
-      if (i==0) break; // for Linking we neglect the SimCluster granularity
+      if (i==0) break; // for Linking we ignore the SimCluster granularity
           }
         }
         if (stsPair.second == FLT_MAX) {
@@ -2704,10 +2701,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                  << "\t score \t-1"
                                  << "\n";
 
+    tracksters_fakemerge[tstId] = std::count_if(std::begin(stsInTrackster[tstId]),
+                                        std::end(stsInTrackster[tstId]),
+                                        [](const auto& obj) { return obj.second < ScoreCutTStoCPFakeMerge_; });
+
     const auto score = std::min_element(std::begin(stsInTrackster[tstId]),
                                         std::end(stsInTrackster[tstId]),
                                         [](const auto& obj1, const auto& obj2) { return obj1.second < obj2.second; });
-    for (auto& stsPair : stsInTrackster[tstId]) {
+    for (const auto& stsPair : stsInTrackster[tstId]) {
       const auto& cpId = getCPId(simTS[stsPair.first], stsPair.first, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
       if (std::find(cPIndices.begin(), cPIndices.end(), cpId) == cPIndices.end())
         continue;
@@ -2730,10 +2731,6 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
             score->second, sharedeneCPallLayers / tracksters[tstId].raw_energy());
       }
     }
-    auto assocFakeMerge = std::count_if(std::begin(stsInTrackster[tstId]),
-                                        std::end(stsInTrackster[tstId]),
-                                        [](const auto& obj) { return obj.second < ScoreCutTStoCPFakeMerge_; });
-    tracksters_fakemerge[tstId] = assocFakeMerge;
   }  //end of loop through Tracksters
 
   std::unordered_map<unsigned int, std::vector<float>> score3d;
@@ -2774,7 +2771,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       //Below gives the CP energy related to Trackster per layer.
       CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
 
-      if (i == 0  &&  iSC > 0) { // For Linking validation we neglect SimCLuster multiplicity
+      if (i == 0  &&  iSC > 0) { // For Linking validation we ignore SimCLuster multiplicity
         continue;
       }
 
@@ -2960,15 +2957,18 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
     if (tracksters[tstId].vertices().empty())
       continue;
-    auto assocFakeMerge = tracksters_fakemerge[tstId];
-    auto assocDuplicate = tracksters_duplicate[tstId];
+    const auto tst_eta = tracksters[tstId].barycenter().eta();
+    const auto tst_phi = tracksters[tstId].barycenter().phi();
+
+    const auto assocFakeMerge = tracksters_fakemerge[tstId];
+    const auto assocDuplicate = tracksters_duplicate[tstId];
     if (assocDuplicate) {
-      histograms.h_numDup_trackster_eta[i][count]->Fill(tracksters[tstId].barycenter().eta());
-      histograms.h_numDup_trackster_phi[i][count]->Fill(tracksters[tstId].barycenter().phi());
+      histograms.h_numDup_trackster_eta[i][count]->Fill(tst_eta);
+      histograms.h_numDup_trackster_phi[i][count]->Fill(tst_phi);
     }
     if (assocFakeMerge > 0) {
-      histograms.h_num_trackster_eta[i][count]->Fill(tracksters[tstId].barycenter().eta());
-      histograms.h_num_trackster_phi[i][count]->Fill(tracksters[tstId].barycenter().phi());
+      histograms.h_num_trackster_eta[i][count]->Fill(tst_eta);
+      histograms.h_num_trackster_phi[i][count]->Fill(tst_phi);
       auto best = std::min_element(std::begin(stsInTrackster[tstId]),
                                    std::end(stsInTrackster[tstId]),
                                    [](const auto& obj1, const auto& obj2) { return obj1.second < obj2.second; });
@@ -2977,11 +2977,10 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       float sharedeneCPallLayers = 0.;
       const auto cpId = getCPId(simTS[best->first], best->first, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
       for (auto& iSC : sCOnLayer[cpId]) {
-        //Loop through all layers
         for (unsigned int j = 0; j < layers * 2; ++j) {
           const auto& best_cp_linked = iSC[j].layerClusterIdToEnergyAndScore[tstId];
           sharedeneCPallLayers += best_cp_linked.first;
-        }  //end of loop through layers
+        }
       }
       histograms.h_sharedenergy_trackster2caloparticle_vs_eta[i][count]->Fill(
           tracksters[tstId].barycenter().eta(), sharedeneCPallLayers / tracksters[tstId].raw_energy());
@@ -2989,13 +2988,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
           tracksters[tstId].barycenter().phi(), sharedeneCPallLayers / tracksters[tstId].raw_energy());
 
       if (assocFakeMerge >= 2) {
-        histograms.h_numMerge_trackster_eta[i][count]->Fill(tracksters[tstId].barycenter().eta());
-        histograms.h_numMerge_trackster_phi[i][count]->Fill(tracksters[tstId].barycenter().phi());
+        histograms.h_numMerge_trackster_eta[i][count]->Fill(tst_eta);
+        histograms.h_numMerge_trackster_phi[i][count]->Fill(tst_phi);
       }
     }
-    histograms.h_denom_trackster_eta[i][count]->Fill(tracksters[tstId].barycenter().eta());
-    histograms.h_denom_trackster_phi[i][count]->Fill(tracksters[tstId].barycenter().phi());
-  }
+
+    histograms.h_denom_trackster_eta[i][count]->Fill(tst_eta);
+    histograms.h_denom_trackster_phi[i][count]->Fill(tst_phi);
+  } // end loop over nTracksters
 }
 
 void HGVHistoProducerAlgo::fill_trackster_histos(const Histograms& histograms,
@@ -3038,7 +3038,7 @@ void HGVHistoProducerAlgo::fill_trackster_histos(const Histograms& histograms,
   //   totalLcInTsts = totalLcInTsts + tracksters[tstId].vertices().size();
   // }
 
-  auto nTracksters = tracksters.size();
+  const auto nTracksters = tracksters.size();
   //loop through Tracksters of the event
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
     auto nLayerClusters = tracksters[tstId].vertices().size();
