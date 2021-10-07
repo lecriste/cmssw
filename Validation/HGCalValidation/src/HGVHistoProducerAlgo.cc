@@ -1512,7 +1512,7 @@ void HGVHistoProducerAlgo::layerClusters_to_CaloParticles(const Histograms& hist
                                                           unsigned int layers,
                                                           const hgcal::RecoToSimCollection& cpsInLayerClusterMap,
                                                           const hgcal::SimToRecoCollection& cPOnLayerMap) const {
-  auto nLayerClusters = clusters.size();
+  const auto nLayerClusters = clusters.size();
 
   std::unordered_map<DetId, std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>> detIdToCaloParticleId_Map;
   std::unordered_map<DetId, std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>> detIdToLayerClusterId_Map;
@@ -1779,12 +1779,11 @@ void HGVHistoProducerAlgo::layerClusters_to_SimClusters(
     unsigned int layers,
     const hgcal::RecoToSimCollectionWithSimClusters& scsInLayerClusterMap,
     const hgcal::SimToRecoCollectionWithSimClusters& lcsInSimClusterMap) const {
-  auto nLayerClusters = clusters.size();
 
   // Here we do fill the plots to compute the different metrics linked to
   // reco-level, namely fake-rate and merge-rate. In this loop we should *not*
   // restrict only to the selected SimClusters.
-  for (unsigned int lcId = 0; lcId < nLayerClusters; ++lcId) {
+  for (unsigned int lcId = 0; lcId < clusters.size(); ++lcId) {
     if (mask[lcId] != 0.) {
       LogDebug("HGCalValidator") << "Skipping layer cluster " << lcId << " not belonging to mask" << std::endl;
       continue;
@@ -2359,11 +2358,11 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
       totHits += lc_haf.size();
       const auto& found = std::find_if(std::begin(lc_haf), std::end(lc_haf), [&hitid](const std::pair<DetId, float>& v) {
 return v.first == hitid; });
-      if (found != lc_haf.end()) // this protection should be useless
+      if (found != lc_haf.end()) // not all hits may be clusterized
         lcId = idx;
     });
-    //std::cout << "\ntotHits: " << totHits << std::endl ;
-    if (int(lcId) < 0) std::cout << "\nHit " << hitid.rawId() << " not found" << std::endl ;
+    //std::cout << "\ntotHits from LCs: " << totHits << std::endl ;
+    //if (int(lcId) < 0) std::cout << "\nHit " << hitid.rawId() << " not found" << std::endl ;
 
     return lcId;
   };
@@ -2728,6 +2727,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
 
     for (const auto& haf : tst_hitsAndFractions) {
       const auto rh_detid = haf.first;
+      const auto lcId = getLCId(tracksters[tstId].vertices(), layerClusters, rh_detid);
       const auto rhFraction = haf.second;
       bool hitWithNoSTS = false;
 
@@ -2741,10 +2741,6 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
         float cpFraction = 0.f;
         if (!hitWithNoSTS) {
           const auto& cpId = getCPId(simTS[stsPair.first], stsPair.first, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
-          const auto lcId = getLCId(tracksters[tstId].vertices(), layerClusters, rh_detid);
-
-          //std::cout << "\nfor sts " << stsPair.first << ", size: " << detIdSimTSId_Map[rh_detid].size() << std::endl ;
-          //for (const auto& iSC : detIdSimTSId_Map[rh_detid]) {
           for (unsigned int iSC=0; iSC < detIdSimTSId_Map[rh_detid].size(); iSC++) {
             if (simTS[stsPair.first].seedID() != cPHandle_id) { // SimTrackster from SimCluster
               const auto& simCluster = *(cP[cpId].simClusters()[iSC]);
@@ -2758,12 +2754,10 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
                                        detIdSimTSId_Map[rh_detid][iSC][iLC].end(),
                                        HGVHistoProducerAlgo::detIdInfoInCluster{stsPair.first, 0.f}); // only the first element is used for the matching (overloaded operator==)
               if (findSTSIt != detIdSimTSId_Map[rh_detid][iSC][iLC].end()) {
-                if (i==1) std::cout << "Hit " << rh_detid.rawId() << " found from iSC " << iSC << ", STS " << stsPair.first << std::endl ;
-                //cpFraction = findSTSIt->fraction;
-                //cpFraction += findSTSIt->fraction;
+                //if (i==1) std::cout << "Hit " << rh_detid.rawId() << " found from iSC " << iSC << ", STS " << stsPair.first << ", iLC " << iLC << std::endl ;
                 cpFraction = lcFraction[iSC][iLC];
               }
-              //else if (i==1) if (lcId == iLC) std::cout << "Hit " << rh_detid.rawId() << " not found from iSC " << iSC << ", STS " << stsPair.first << std::endl ;
+              else if (i==1) if (iLC == lcId) LogDebug("HGCalValidator") << "Hit " << rh_detid.rawId() << " from Trackster " << tstId << " (LayerCluster " << lcId << ") not found from SimTrackster " << stsPair.first << " (SimCluster " << simTS[stsPair.first].seedIndex() << ")" << std::endl ;
             }
             if (i==0) break; // for Linking we ignore the SimCluster granularity
           }
@@ -2828,7 +2822,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
   }
 
   // Here we do fill the plots to compute the different metrics linked to
-  // gen-level, namely efficiency an duplicate. In this loop we should restrict
+  // gen-level, namely efficiency, purity and duplicate. In this loop we should restrict
   // only to the selected caloParaticles.
   for (unsigned int iSTS = 0; iSTS < nSimTracksters; ++iSTS) {
     const auto& cpId = getCPId(simTS[iSTS], iSTS, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
@@ -2852,9 +2846,8 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
       //Below gives the CP energy related to Trackster per layer.
       CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
 
-      if (i == 0  &&  iSC > 0) { // For Linking validation we ignore SimCLuster multiplicity
+      if (i == 0  &&  iSC > 0) // For Linking validation we ignore SimCLuster multiplicity
         continue;
-      }
 
       std::vector<std::pair<DetId, float>> haf;
       if (i==0) haf = cPOnLayer[cpId][layerId];
@@ -3122,17 +3115,13 @@ void HGVHistoProducerAlgo::fill_trackster_histos(const Histograms& histograms,
   const auto nTracksters = tracksters.size();
   //loop through Tracksters of the event
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
-    auto nLayerClusters = tracksters[tstId].vertices().size();
-
-    if (nLayerClusters == 0)
+    if (tracksters[tstId].vertices().size() == 0)
       continue;
 
-    if (tracksters[tstId].barycenter().z() < 0.) {
+    if (tracksters[tstId].barycenter().z() < 0.)
       totNTstZm++;
-    }
-    if (tracksters[tstId].barycenter().z() > 0.) {
+    if (tracksters[tstId].barycenter().z() > 0.)
       totNTstZp++;
-    }
 
     //Total number of layer clusters in Trackster
     int tnLcInTst = 0;
@@ -3166,12 +3155,10 @@ void HGVHistoProducerAlgo::fill_trackster_histos(const Histograms& histograms,
       tnLcInTstperlay[layerid]++;
       tnLcInTst++;
 
-      if (recHitTools_->zside(firstHitDetId) > 0.) {
+      if (recHitTools_->zside(firstHitDetId) > 0.)
         tracksterInZplus = true;
-      }
-      if (recHitTools_->zside(firstHitDetId) < 0.) {
+      if (recHitTools_->zside(firstHitDetId) < 0.)
         tracksterInZminus = true;
-      }
 
     }  // end of loop through layerClusters
 
