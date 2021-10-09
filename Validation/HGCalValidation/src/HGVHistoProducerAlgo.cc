@@ -2579,12 +2579,11 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
       if (hit_find_in_STS == detIdSimTSId_Map.end()) {
         hitsToCaloParticleId[hitId] -= 1;
       } else {
-        const auto lcId = getLCId(tracksters[tstId].vertices(), layerClusters, hit_find_in_STS->first);
-          if (int(lcId) < 0) continue;
         auto maxCPEnergyInTS = 0.f;
         auto maxCPId = -1;
         for (unsigned int iSC=0; iSC < hit_find_in_STS->second.size(); iSC++) {
-        for (const auto& h : hit_find_in_STS->second[iSC][lcId]) {
+        for (const auto& [lcId, simTS_idFrac] : hit_find_in_STS->second[iSC])
+        for (const auto& h : simTS_idFrac) {
           const auto shared_fraction = std::min(rhFraction, h.fraction);
           //We are in the case where there are calo particles with simhits connected via detid with the rechit under study
           //So, from all layers clusters, find the rechits that are connected with a calo particle and save/calculate the
@@ -2685,8 +2684,8 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
   std::unordered_map<unsigned int, std::unordered_map<unsigned int, float>> lcFraction;
     for (const auto& [key, hitid] : detIdSimTSId_Map)
       for (unsigned int iSC=0; iSC < hitid.size(); iSC++)
-        for (const auto& [lcId, vec] : hitid[iSC])
-          for (const auto& pair : vec)
+        for (const auto& [lcId, simTS_idFrac] : hitid[iSC])
+          for (const auto& pair : simTS_idFrac)
             lcFraction[iSC][lcId] += pair.fraction * hitMap.at(key)->energy() / layerClusters[lcId].energy();
 
   // Loop through Tracksters
