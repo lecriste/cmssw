@@ -1629,8 +1629,9 @@ void HGVHistoProducerAlgo::layerClusters_to_CaloParticles(const Histograms& hist
     if (cpsIt == cpsInLayerClusterMap.end())
       continue;
 
+    const auto lc_en = clusters[lcId].energy();
     const auto& cps = cpsIt->val;
-    if (clusters[lcId].energy() == 0. && !cps.empty()) {
+    if (lc_en == 0. && !cps.empty()) {
       for (const auto& cpPair : cps) {
         histograms.h_score_layercl2caloparticle_perlayer.at(lcLayerId)->Fill(cpPair.second);
       }
@@ -1650,9 +1651,9 @@ void HGVHistoProducerAlgo::layerClusters_to_CaloParticles(const Histograms& hist
           cPOnLayerMap[cpPair.first].end())  // This should never happen by construction of the association maps
         continue;
       histograms.h_sharedenergy_layercl2caloparticle_perlayer.at(lcLayerId)->Fill(
-          cp_linked->second.first / clusters[lcId].energy(), clusters[lcId].energy());
+          cp_linked->second.first / lc_en, lc_en);
       histograms.h_energy_vs_score_layercl2caloparticle_perlayer.at(lcLayerId)->Fill(
-          cpPair.second, cp_linked->second.first / clusters[lcId].energy());
+          cpPair.second, cp_linked->second.first / lc_en);
     }
     const auto assoc =
         std::count_if(std::begin(cps), std::end(cps), [](const auto& obj) { return obj.second < ScoreCutLCtoCP_; });
@@ -1675,9 +1676,9 @@ void HGVHistoProducerAlgo::layerClusters_to_CaloParticles(const Histograms& hist
           cPOnLayerMap[best->first].end())  // This should never happen by construction of the association maps
         continue;
       histograms.h_sharedenergy_layercl2caloparticle_vs_eta_perlayer.at(lcLayerId)->Fill(
-          clusters[lcId].eta(), best_cp_linked->second.first / clusters[lcId].energy());
+          clusters[lcId].eta(), best_cp_linked->second.first / lc_en);
       histograms.h_sharedenergy_layercl2caloparticle_vs_phi_perlayer.at(lcLayerId)->Fill(
-          clusters[lcId].phi(), best_cp_linked->second.first / clusters[lcId].energy());
+          clusters[lcId].phi(), best_cp_linked->second.first / lc_en);
     }
   }  // End of loop over LayerClusters
 
@@ -1802,10 +1803,11 @@ void HGVHistoProducerAlgo::layerClusters_to_SimClusters(
     if (scsIt == scsInLayerClusterMap.end())
       continue;
 
+    const auto lc_en = clusters[lcId].energy();
     const auto& scs = scsIt->val;
     // If a reconstructed LayerCluster has energy 0 but is linked to at least a
     // SimCluster, then his score should be 1 as set in the associator
-    if (clusters[lcId].energy() == 0. && !scs.empty()) {
+    if (lc_en == 0. && !scs.empty()) {
       for (const auto& scPair : scs) {
         histograms.h_score_layercl2simcluster_perlayer[count].at(lcLayerId)->Fill(scPair.second);
       }
@@ -1827,9 +1829,9 @@ void HGVHistoProducerAlgo::layerClusters_to_SimClusters(
           lcsInSimClusterMap[scPair.first].end())  // This should never happen by construction of the association maps
         continue;
       histograms.h_sharedenergy_layercl2simcluster_perlayer[count].at(lcLayerId)->Fill(
-          sc_linked->second.first / clusters[lcId].energy(), clusters[lcId].energy());
+          sc_linked->second.first / lc_en, lc_en);
       histograms.h_energy_vs_score_layercl2simcluster_perlayer[count].at(lcLayerId)->Fill(
-          scPair.second, sc_linked->second.first / clusters[lcId].energy());
+          scPair.second, sc_linked->second.first / lc_en);
     }
     //Here he counts how many of the linked SimClusters of the layer cluster under study have a score above a certain value.
     const auto assoc =
@@ -1854,9 +1856,9 @@ void HGVHistoProducerAlgo::layerClusters_to_SimClusters(
           lcsInSimClusterMap[best->first].end())  // This should never happen by construction of the association maps
         continue;
       histograms.h_sharedenergy_layercl2simcluster_vs_eta_perlayer[count].at(lcLayerId)->Fill(
-          clusters[lcId].eta(), best_sc_linked->second.first / clusters[lcId].energy());
+          clusters[lcId].eta(), best_sc_linked->second.first / lc_en);
       histograms.h_sharedenergy_layercl2simcluster_vs_phi_perlayer[count].at(lcLayerId)->Fill(
-          clusters[lcId].phi(), best_sc_linked->second.first / clusters[lcId].energy());
+          clusters[lcId].phi(), best_sc_linked->second.first / lc_en);
     }
   }  // End of loop over LayerClusters
 
@@ -2200,14 +2202,15 @@ void HGVHistoProducerAlgo::fill_generic_cluster_histos(const Histograms& histogr
     if (histograms.h_distancebetseedandmaxcell_perthickperlayer.count(seedstr)) {
       histograms.h_distancebetseedandmaxcell_perthickperlayer.at(seedstr)->Fill(distancebetseedandmax);
     }
+    const auto lc_en = clusters[lcId].energy();
     if (histograms.h_distancebetseedandmaxcellvsclusterenergy_perthickperlayer.count(seedstr)) {
       histograms.h_distancebetseedandmaxcellvsclusterenergy_perthickperlayer.at(seedstr)->Fill(distancebetseedandmax,
-                                                                                               clusters[lcId].energy());
+                                                                                               lc_en);
     }
 
     //Energy clustered per layer
-    tecpl[layerid] = tecpl[layerid] + clusters[lcId].energy();
-    ldbar[layerid] = ldbar[layerid] + clusters[lcId].energy() * cummatbudg[(double)lay];
+    tecpl[layerid] = tecpl[layerid] + lc_en;
+    ldbar[layerid] = ldbar[layerid] + lc_en * cummatbudg[(double)lay];
 
   }  //end of loop through clusters of the event
 
