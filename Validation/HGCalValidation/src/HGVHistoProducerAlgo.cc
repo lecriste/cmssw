@@ -2364,7 +2364,7 @@ return v.first == hitid; });
       if (found != lc_haf.end()) // not all hits may be clusterized
         lcId = idx;
     });
-    //std::cout << "\ntotHits from LCs: " << totHits << std::endl ;
+    //std::cout << "totHits from LCs: " << totHits << std::endl ;
     //if (int(lcId) < 0) std::cout << "\nHit " << hitid.rawId() << " not found" << std::endl ;
 
     return lcId;
@@ -2493,7 +2493,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
     return hits_and_fractions_norm;
   };
 
-  //Loop through Tracksters
+  // Loop through Tracksters
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
     if (tracksters[tstId].vertices().empty())
       continue;
@@ -2595,7 +2595,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
             continue;
 
           CPEnergyInTS[cpId] += shared_fraction * hit->energy();
-          //Here sCOnLayer[caloparticle][layer] describe above is set.
+          //Here sCOnLayer[CaloParticle][SimCluster][layer] describe above is set.
           //Here for Tracksters with matched rechit the CP fraction times hit energy is added and saved .
           sCOnLayer[cpId][iSC][lcLayerId].layerClusterIdToEnergyAndScore[tstId].first += shared_fraction * hit->energy();
           sCOnLayer[cpId][iSC][lcLayerId].layerClusterIdToEnergyAndScore[tstId].second = FLT_MAX;
@@ -2689,7 +2689,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
           for (const auto& pair : vec)
             lcFraction[iSC][lcId] += pair.fraction * hitMap.at(key)->energy() / layerClusters[lcId].energy();
 
-  //Loop through Tracksters
+  // Loop through Tracksters
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
     if (tracksters[tstId].vertices().empty())
       continue;
@@ -2724,7 +2724,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
 
     for (const auto& haf : tst_hitsAndFractions) {
       const auto rh_detid = haf.first;
-      const auto lcId = getLCId(tracksters[tstId].vertices(), layerClusters, rh_detid);
+      const auto rh_lcId = getLCId(tracksters[tstId].vertices(), layerClusters, rh_detid);
       const auto rhFraction = haf.second;
       bool hitWithNoSTS = false;
 
@@ -2784,7 +2784,7 @@ std::cout << "iSTS: " << stspair.clusterId << ", fraction: " << stspair.fraction
       if (std::find(cPIndices.begin(), cPIndices.end(), cpId) == cPIndices.end())
         continue;
 
-      LogDebug("HGCalValidator") << "Trackster Id: \t" << tstId << "\t CP id: \t" << cpId << "\t score \t"
+      LogDebug("HGCalValidator") << "Trackster Id: \t" << tstId << "\t SimTrackster id: \t" << stsPair.first << "\t score \t"
                                  << stsPair.second << std::endl;
       float sharedeneCPallLayers = 0.;
       for (auto& iSC : sCOnLayer[cpId]) {
