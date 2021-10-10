@@ -2293,6 +2293,7 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                                        unsigned int layers) const {
   const auto nTracksters = tracksters.size();
   const auto nSimTracksters = simTS.size();
+  // Consider CaloParticles coming from the hard scatterer, excluding the PU contribution.
   const auto nCaloParticles = cPIndices.size();
 
   std::unordered_map<DetId, std::vector<std::unordered_map<unsigned int, std::vector<HGVHistoProducerAlgo::detIdInfoInCluster>>>> detIdSimTSId_Map;
@@ -2337,15 +2338,15 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
     const auto productID = simTS.seedID();
     if (productID == cPHandle_id) {
       cpId = simTS.seedIndex();
-    } else {  // SimTrackster from SimCluster
-      const auto findResult = std::find_if(
+    } else { // SimTrackster from SimCluster
+      const auto findSimTSFromCP = std::find_if(
           std::begin(cpToSc_SimTrackstersMap),
           std::end(cpToSc_SimTrackstersMap),
           [&](const std::pair<unsigned int, std::vector<unsigned int>>& cpToScs) {
             return std::find(std::begin(cpToScs.second), std::end(cpToScs.second), iSTS) != std::end(cpToScs.second);
           });
-      if (findResult != std::end(cpToSc_SimTrackstersMap)) {
-        cpId = simTS_fromCP[findResult->first].seedIndex();
+      if (findSimTSFromCP != std::end(cpToSc_SimTrackstersMap)) {
+        cpId = simTS_fromCP[findSimTSFromCP->first].seedIndex();
       }
     }
 
@@ -2354,10 +2355,8 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
 
   auto getLCId = [](const std::vector<unsigned int>& tst_vertices, const reco::CaloClusterCollection& layerClusters, const DetId& hitid) {
     unsigned int lcId = -1;
-    unsigned int totHits = 0;
     std::for_each(std::begin(tst_vertices), std::end(tst_vertices), [&](unsigned int idx) {
       const auto& lc_haf = layerClusters[idx].hitsAndFractions();
-      totHits += lc_haf.size();
       const auto& found = std::find_if(std::begin(lc_haf), std::end(lc_haf), [&hitid](const std::pair<DetId, float>& v) {
 return v.first == hitid; });
       if (found != lc_haf.end()) // not all hits may be clusterized
@@ -2695,7 +2694,6 @@ return v.first == hitid; });
 
     for (const auto& haf : tst_hitsAndFractions) {
       const auto rh_detid = haf.first;
-      const auto rh_lcId = getLCId(tracksters[tstId].vertices(), layerClusters, rh_detid);
       const auto rhFraction = haf.second;
       bool hitWithNoSTS = false;
 
@@ -2911,14 +2909,10 @@ return v.first == hitid; });
     // only one that has the compressed information for multiple usage
     // of the same DetId by different SimClusters by a single CaloParticle.
     float invCPEnergyWeight = 0.f;
-    //for (const auto& iSC : sCOnLayer[cpId]) {
       for (const auto& layer : cPOnLayer[cpId]) {
-        //for (const auto& haf : layer.hits_and_fractions) {
-        for (const auto& haf : layer) {
+        for (const auto& haf : layer)
           invCPEnergyWeight +=
               (haf.second * hitMap.at(haf.first)->energy()) * (haf.second * hitMap.at(haf.first)->energy());
-        }
-      //}
     }
     invCPEnergyWeight = 1.f / invCPEnergyWeight;
 
@@ -2938,8 +2932,7 @@ return v.first == hitid; });
                                  << "\tinvCPEnergyWeight \t" << invCPEnergyWeight
                                  << "\tTrackste energy: \t" << tracksters[tstId].raw_energy()
                                  << "\tshared energy:\t" << tstSharedEnergy[cpId][tstId]
-                                 << "\tshared energy fraction:\t" << tstSharedEnergyFrac
-                                 << "\tCPenergy:\t" << CPenergy <<std::endl ;
+                                 << "\tshared energy fraction:\t" << tstSharedEnergyFrac << std::endl ;
 
       histograms.h_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][tstId]);
 
@@ -2947,7 +2940,7 @@ return v.first == hitid; });
       histograms.h_energy_vs_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][tstId],
                                                                           tstSharedEnergyFrac);
       // Fill the numerator for the efficiency calculation. The efficiency is computed by considering the energy shared between a Trackster and a _corresponding_ caloParticle. The threshold is configurable via python.
-      if (!cp_considered_efficient  &&  tstSharedEnergyFrac >= minTSTSharedEneFracEfficiency_) {
+      if (!cp_considered_efficient  &&  (tstSharedEnergyFrac >= minTSTSharedEneFracEfficiency_)) {
         cp_considered_efficient = true;
         histograms.h_numEff_caloparticle_eta[i][count]->Fill(simTS[iSTS].barycenter().eta());
         histograms.h_numEff_caloparticle_phi[i][count]->Fill(simTS[iSTS].barycenter().phi());
