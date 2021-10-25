@@ -17,7 +17,10 @@ const double ScoreCutCPtoLC_ = 0.1;
 const double ScoreCutLCtoSC_ = 0.1;
 const double ScoreCutSCtoLC_ = 0.1;
 const double ScoreCutTStoCPFakeMerge_ = 0.6;
-const double ScoreCutCPtoTSEffDup_ = 0.2;
+const double ScoreCutSTStoCPFakeMerge_ = 1e-11;
+//const int ScoreMinHitsTStoCPFakeMerge_ = 3;
+const double ScoreCutCPtoTSPurDup_ = 0.2;
+const double ScoreCutCPtoSTSPurDup_ = 1e-06; // may relax adding a min cut on totCPNumberOfHits (few units)
 
 HGVHistoProducerAlgo::HGVHistoProducerAlgo(const edm::ParameterSet& pset)
     :  //parameters for eta
@@ -2296,6 +2299,14 @@ void HGVHistoProducerAlgo::tracksters_to_SimTracksters(const Histograms& histogr
                                                        std::unordered_map<DetId, const HGCRecHit*> const& hitMap,
                                                        unsigned int layers) const {
   const auto nTracksters = tracksters.size();
+  double ScoreCutTStoCPFakeMerge = ScoreCutTStoCPFakeMerge_;
+  double ScoreCutCPtoTSPurDup = ScoreCutCPtoTSPurDup_;
+  if (nTracksters) {
+    if (tracksters[0].ticlIteration() == ticl::Trackster::SIM) {
+      ScoreCutTStoCPFakeMerge = ScoreCutSTStoCPFakeMerge_;
+      ScoreCutCPtoTSPurDup = ScoreCutCPtoSTSPurDup_;
+    }
+  }
   const auto nSimTracksters = simTS.size();
   // Consider CaloParticles coming from the hard scatterer, excluding the PU contribution.
   const auto nCaloParticles = cPIndices.size();
