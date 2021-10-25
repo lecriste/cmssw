@@ -2714,7 +2714,7 @@ return v.first == hitid; });
     float invTracksterEnergyWeight = 0.f;
     for (const auto& haf : tst_hitsAndFractions) {
       invTracksterEnergyWeight +=
-          (haf.second * hitMap.at(haf.first)->energy()) * (haf.second * hitMap.at(haf.first)->energy());
+          pow(haf.second * hitMap.at(haf.first)->energy(), 2);
     }
     invTracksterEnergyWeight = 1.f / invTracksterEnergyWeight;
 
@@ -2915,20 +2915,21 @@ else return false;
         bool hitWithNoTS = false;
         if (cpFraction == 0.f)
           continue;  //hopefully this should never happen
-        auto hit_find_in_TS = detIdToTracksterId_Map.find(cp_hitDetId);
-        if (hit_find_in_TS == detIdToTracksterId_Map.end())
+
+        bool hitWithNoTS = false;
+        if (detIdToTracksterId_Map.find(cp_hitDetId) == detIdToTracksterId_Map.end())
           hitWithNoTS = true;
-        auto itcheck = hitMap.find(cp_hitDetId);
+        const auto itcheck = hitMap.find(cp_hitDetId);
         const HGCRecHit* hit = itcheck->second;
-        float hitEnergyWeight = hit->energy() * hit->energy();
+        const float hitEnergyWeight = hit->energy() * hit->energy();
         for (auto& tsPair : sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore) {
           const unsigned int tracksterId = tsPair.first;
           if (std::find(std::begin(cpId_tstId_related[iSC]), std::end(cpId_tstId_related[iSC]), tracksterId) ==
               std::end(cpId_tstId_related[iSC])) {
             cpId_tstId_related[iSC].push_back(tracksterId);
           }
-          float tstFraction = 0.f;
 
+          float tstFraction = 0.f;
           if (!hitWithNoTS) {
             const auto findHitIt = std::find(detIdToTracksterId_Map[cp_hitDetId].begin(),
                                        detIdToTracksterId_Map[cp_hitDetId].end(),
@@ -2942,17 +2943,16 @@ else return false;
             tsPair.second.second = 0.f;
           }
           tsPair.second.second += (tstFraction - cpFraction) * (tstFraction - cpFraction) * hitEnergyWeight;
-          LogDebug("HGCalValidator") << "TracksterId:\t" << tracksterId << "\t"
-                                     << "cpId:\t" << cpId << "\t"
-                                     << "Layer: " << layerId << '\t' << "tstfraction,cpfraction:\t" << tstFraction
-                                     << ", " << cpFraction << "\t"
-                                     << "hitEnergyWeight:\t" << hitEnergyWeight << "\t"
-                                     << "added delta:\t"
+          LogDebug("HGCalValidator") << "\nTracksterId: " << tracksterId << ", iSTS: " << iSTS << ", iSC: " << iSC
+                                     << "\tcpId: " << cpId
+                                     << "\tLayer: " << layerId << "\ttstfraction, cpfraction: " << tstFraction
+                                     << ", " << cpFraction
+                                     << "\thitEnergyWeight: " << hitEnergyWeight
+                                     << "\tadded delta: "
                                      << (tstFraction - cpFraction) * (tstFraction - cpFraction) * hitEnergyWeight
-                                     << "\t"
-                                     << "currect score numerator:\t" << tsPair.second.second << "\t"
-                                     << "shared Energy:\t" << tsPair.second.first << std::endl;
-        }
+                                     << "\tcurrect score numerator: " << tsPair.second.second
+                                     << "\tshared Energy: " << tsPair.second.first << std::endl;
+        } // end of loop through tsPair
       }  //end of loop through sim hits of current calo particle
 
       if (sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore.empty())
@@ -3072,7 +3072,6 @@ else return false;
     }
     histograms.h_denom_caloparticle_eta[i][count]->Fill(simTS[iSTS].barycenter().eta());
     histograms.h_denom_caloparticle_phi[i][count]->Fill(simTS[iSTS].barycenter().phi());
-
   }  //end of loop through SimTracksters
 
   // Here we do fill the plots to compute the different metrics linked to
