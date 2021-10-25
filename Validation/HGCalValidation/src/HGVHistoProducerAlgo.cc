@@ -2908,11 +2908,12 @@ else return false;
                                  << "\t" << std::setw(15) << maxEnergyTSperlayerinCP << "\t" << std::setw(20)
                                  << CPEnergyFractionInTSperlayer << "\n";
 
-      for (unsigned int iHit = 0; iHit < CPNumberOfHits; ++iHit) {
-        const auto& cp_hitDetId = haf[iHit].first;
-        const auto& cpFraction = haf[iHit].second;
-
-        bool hitWithNoTS = false;
+      for (const auto& iHit : haf) {
+        const auto& cp_hitDetId = iHit.first;
+        //const auto& cpFraction = iHit.second;
+        const auto lcId = getLCId(simTS[iSTS].vertices(), layerClusters, cp_hitDetId);
+        if (int(lcId) < 0) continue;
+        const auto& cpFraction = lcFraction[iSC][lcId];
         if (cpFraction == 0.f)
           continue;  //hopefully this should never happen
 
@@ -3019,7 +3020,7 @@ else return false;
       score3d[cpId][iSC][tstId] *= invSCEnergyWeight[iSC];
       const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][iSC][tstId] / std::min(tracksters[tstId].raw_energy(), SCenergy[iSC]);
 
-      //std::cout << "\nCP Id: " << cpId << "\tSC: " << iSC << "\tiSTS id: " << iSTS << "\tTS id: " << tstId << "\tscore: "  //
+      LogDebug("HGCalValidator") << "\nCP Id: " << cpId << "\tSC: " << iSC << "\tiSTS id: " << iSTS << "\tTS id: " << tstId << "\tscore: "  //
                                  << score3d[cpId][iSC][tstId]
                                  << "\tinvSCEnergyWeight: " << invSCEnergyWeight[iSC]
                                  << "\tTrackster energy: " << tracksters[tstId].raw_energy()
