@@ -2815,22 +2815,27 @@ else return false;
     }
   }  //end of loop through Tracksters
 
-  std::unordered_map<unsigned int, std::vector<float>> score3d;
-  std::unordered_map<unsigned int, std::vector<float>> tstSharedEnergy;
-
+  std::unordered_map<unsigned int, std::vector<std::vector<float>>> score3d;
+  std::unordered_map<unsigned int, std::vector<std::vector<float>>> tstSharedEnergy;
   for (unsigned int iCP = 0; iCP < nCaloParticles; ++iCP) {
     auto cpIndex = cPIndices[iCP];
-    score3d[cpIndex].resize(nTracksters);
-    tstSharedEnergy[cpIndex].resize(nTracksters);
-    for (unsigned int j = 0; j < nTracksters; ++j) {
-      score3d[cpIndex][j] = FLT_MAX;
-      tstSharedEnergy[cpIndex][j] = 0.f;
+    const auto nSC_inCP = cP[cpIndex].simClusters().size();
+    score3d[cpIndex].resize(nSC_inCP);
+    tstSharedEnergy[cpIndex].resize(nSC_inCP);
+    for (unsigned int iSC=0; iSC<nSC_inCP; iSC++) {
+      score3d[cpIndex][iSC].resize(nTracksters);
+      tstSharedEnergy[cpIndex][iSC].resize(nTracksters);
+      for (unsigned int j = 0; j < nTracksters; ++j) {
+        score3d[cpIndex][iSC][j] = FLT_MAX;
+        tstSharedEnergy[cpIndex][iSC][j] = 0.f;
+      }
     }
   }
 
   // Here we do fill the plots to compute the different metrics linked to
   // gen-level, namely efficiency, purity and duplicate. In this loop we should restrict
   // only to the selected caloParaticles.
+  auto is_assoc = [ScoreCutCPtoTSPurDup](const auto& v) -> bool { return v < ScoreCutCPtoTSPurDup; };
   for (unsigned int iSTS = 0; iSTS < nSimTracksters; ++iSTS) {
     const auto& cpId = getCPId(simTS[iSTS], iSTS, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
     if (i == 0)
@@ -2839,9 +2844,11 @@ else return false;
 
     //We need to keep the Tracksters ids that are related to
     //CaloParticle under study for the final filling of the score.
-    std::vector<unsigned int> cpId_tstId_related;
+    std::vector<std::vector<unsigned int>> cpId_tstId_related(cP[cpId].simClusters().size());
 
     float CPenergy = 0.f;
+    std::vector<float> SCenergy(sCOnLayer[cpId].size(), 0.);
+    int totCPNumberOfHits = 0;
     for (unsigned int iSC=0; iSC < sCOnLayer[cpId].size(); iSC++) {
       if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
         const auto& simCluster = *(cP[cpId].simClusters()[iSC]);
@@ -2852,6 +2859,7 @@ else return false;
     for (unsigned int layerId = 0; layerId < layers * 2; ++layerId) {
       //Below gives the CP energy related to Trackster per layer.
       CPenergy += sCOnLayer[cpId][iSC][layerId].energy;
+      SCenergy[iSC] += sCOnLayer[cpId][iSC][layerId].energy;
 
       if (i == 0  &&  iSC > 0) // For Linking validation we ignore SimCLuster multiplicity
         continue;
@@ -2862,6 +2870,8 @@ else return false;
       const unsigned int CPNumberOfHits = haf.size();
       if (CPNumberOfHits == 0)
         continue;
+      totCPNumberOfHits += CPNumberOfHits;
+
       int tstWithMaxEnergyInCP = -1;
       //This is the maximum energy related to Trackster per layer.
       float maxEnergyTSperlayerinCP = 0.f;
@@ -2902,9 +2912,9 @@ else return false;
         float hitEnergyWeight = hit->energy() * hit->energy();
         for (auto& tsPair : sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore) {
           const unsigned int tracksterId = tsPair.first;
-          if (std::find(std::begin(cpId_tstId_related), std::end(cpId_tstId_related), tracksterId) ==
-              std::end(cpId_tstId_related)) {
-            cpId_tstId_related.push_back(tracksterId);
+          if (std::find(std::begin(cpId_tstId_related[iSC]), std::end(cpId_tstId_related[iSC]), tracksterId) ==
+              std::end(cpId_tstId_related[iSC])) {
+            cpId_tstId_related[iSC].push_back(tracksterId);
           }
           float tstFraction = 0.f;
 
@@ -2941,49 +2951,76 @@ else return false;
 
       for (const auto& tsPair : sCOnLayer[cpId][iSC][layerId].layerClusterIdToEnergyAndScore) {
         // 3d score here without the denominator at this point
-        if (score3d[cpId][tsPair.first] == FLT_MAX) {
-          score3d[cpId][tsPair.first] = 0.f;
+        if (score3d[cpId][iSC][tsPair.first] == FLT_MAX) {
+          score3d[cpId][iSC][tsPair.first] = 0.f;
         }
-        score3d[cpId][tsPair.first] += tsPair.second.second;
-        tstSharedEnergy[cpId][tsPair.first] += tsPair.second.first;
+        score3d[cpId][iSC][tsPair.first] += tsPair.second.second;
+        tstSharedEnergy[cpId][iSC][tsPair.first] += tsPair.second.first;
       }
     }  //end of loop through layers
     } // end loop through SimClusters of CaloParticle cpId
+    //std::cout << "\n\ntotCPNumberOfHits: " << totCPNumberOfHits << std::endl ;
 
     // Compute the correct normalization
     // We need to loop on the sCOnLayer data structure since this is the
     // only one that has the compressed information for multiple usage
     // of the same DetId by different SimClusters by a single CaloParticle.
+    std::vector<float> invSCEnergyWeight(sCOnLayer[cpId].size(), 0.);
+    for (unsigned int iSC=0; iSC < sCOnLayer[cpId].size(); iSC++) {
+      for (const auto& layer : sCOnLayer[cpId][iSC])
+        for (const auto& haf : layer.hits_and_fractions)
+          invSCEnergyWeight[iSC] +=
+            pow(haf.second * hitMap.at(haf.first)->energy(), 2);
+      invSCEnergyWeight[iSC] = 1.f / invSCEnergyWeight[iSC];
+    }
+
     float invCPEnergyWeight = 0.f;
-      for (const auto& layer : cPOnLayer[cpId]) {
-        for (const auto& haf : layer)
-          invCPEnergyWeight +=
-              (haf.second * hitMap.at(haf.first)->energy()) * (haf.second * hitMap.at(haf.first)->energy());
+    for (const auto& layer : cPOnLayer[cpId]) {
+      for (const auto& haf : layer)
+        invCPEnergyWeight +=
+          pow(haf.second * hitMap.at(haf.first)->energy(), 2);
     }
     invCPEnergyWeight = 1.f / invCPEnergyWeight;
+
 
     //Loop through related Tracksters here
     // In case the threshold to associate a CaloParticle to a Trackster is
     // below 50%, there could be cases in which the CP is linked to more than
     // one tracksters, leading to efficiencies >1. This boolean is used to
     // avoid "over counting".
+    int assocDup = 0;
+    std::vector<float> tstScore_vec;
+    unsigned int iSC_val = -1;
+    for (unsigned int iSC=0; iSC < cpId_tstId_related.size(); iSC++) {
+      if (simTS[iSTS].seedID() != cPHandle_id) { // SimTrackster from SimCluster
+        const auto& simCluster = *(cP[cpId].simClusters()[iSC]);
+        if (simTS[iSTS].seedIndex() != (&simCluster - &sC[0]))
+          continue;
+      }
+      else if (iSC > 0) // SimTrackster from CaloParticle -> ignore SimCluster multiplicity
+        continue;
+
+      tstScore_vec = score3d[cpId][iSC];
+      iSC_val = iSC;
     bool cp_considered_efficient = false;
-    for (const auto tstId : cpId_tstId_related) {
+    for (const auto tstId : cpId_tstId_related[iSC]) {
       // Now time for the denominator
-      score3d[cpId][tstId] = score3d[cpId][tstId] * invCPEnergyWeight;
-      const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][tstId] / CPenergy;
+      score3d[cpId][iSC][tstId] *= invSCEnergyWeight[iSC];
+      const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][iSC][tstId] / std::min(tracksters[tstId].raw_energy(), SCenergy[iSC]);
 
-      LogDebug("HGCalValidator") << "\nCP Id: \t" << cpId << "\t TS id: \t" << tstId << "\t score \t"  //
-                                 << score3d[cpId][tstId]
-                                 << "\tinvCPEnergyWeight \t" << invCPEnergyWeight
-                                 << "\tTrackste energy: \t" << tracksters[tstId].raw_energy()
-                                 << "\tshared energy:\t" << tstSharedEnergy[cpId][tstId]
-                                 << "\tshared energy fraction:\t" << tstSharedEnergyFrac << std::endl ;
+      //std::cout << "\nCP Id: " << cpId << "\tSC: " << iSC << "\tiSTS id: " << iSTS << "\tTS id: " << tstId << "\tscore: "  //
+                                 << score3d[cpId][iSC][tstId]
+                                 << "\tinvSCEnergyWeight: " << invSCEnergyWeight[iSC]
+                                 << "\tTrackster energy: " << tracksters[tstId].raw_energy()
+                                 << "\tshared energy: " << tstSharedEnergy[cpId][iSC][tstId]
+                                 << "\tSCenergy: " << SCenergy[iSC]
+                                 << "\tshared energy fraction: " << tstSharedEnergyFrac
+                                 << "\tshared energy reco-fraction: " << tstSharedEnergy[cpId][iSC][tstId] / tracksters[tstId].raw_energy() << std::endl ;
 
-      histograms.h_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][tstId]);
+      histograms.h_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][iSC][tstId]);
 
       histograms.h_sharedenergy_caloparticle2trackster[i][count]->Fill(tstSharedEnergyFrac);
-      histograms.h_energy_vs_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][tstId],
+      histograms.h_energy_vs_score_caloparticle2trackster[i][count]->Fill(score3d[cpId][iSC][tstId],
                                                                           tstSharedEnergyFrac);
       // Fill the numerator for the efficiency calculation. The efficiency is computed by considering the energy shared between a Trackster and a _corresponding_ caloParticle. The threshold is configurable via python.
       if (!cp_considered_efficient  &&  (tstSharedEnergyFrac >= minTSTSharedEneFracEfficiency_)) {
@@ -2993,16 +3030,15 @@ else return false;
       }
     }  //end of loop through Tracksters
 
-    auto is_assoc = [&](const auto& v) -> bool { return v < ScoreCutCPtoTSEffDup_; };
-
-    auto assocDup = std::count_if(std::begin(score3d[cpId]), std::end(score3d[cpId]), is_assoc);
+    assocDup = std::count_if(std::begin(score3d[cpId][iSC]), std::end(score3d[cpId][iSC]), is_assoc);
+    } //end of loop through SimClusters
 
     if (assocDup > 0) {
       histograms.h_num_caloparticle_eta[i][count]->Fill(simTS[iSTS].barycenter().eta());
       histograms.h_num_caloparticle_phi[i][count]->Fill(simTS[iSTS].barycenter().phi());
-      auto best = std::min_element(std::begin(score3d[cpId]), std::end(score3d[cpId]));
-      auto bestTstId = std::distance(std::begin(score3d[cpId]), best);
-      const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][bestTstId] / CPenergy ;
+      const auto best = std::min_element(std::begin(tstScore_vec), std::end(tstScore_vec));
+      const auto bestTstId = std::distance(std::begin(tstScore_vec), best);
+      const auto tstSharedEnergyFrac = tstSharedEnergy[cpId][iSC_val][bestTstId] / std::min(tracksters[bestTstId].raw_energy(), SCenergy[iSC_val]);
 
       histograms.h_sharedenergy_caloparticle2trackster_vs_eta[i][count]->Fill(
           simTS[iSTS].barycenter().eta(), tracksters[bestTstId].raw_energy() / CPenergy);
@@ -3015,10 +3051,11 @@ else return false;
       histograms.h_sharedenergy_caloparticle2trackster_assoc[i][count]->Fill(tstSharedEnergyFrac);
 
       if (assocDup >= 2) {
-        auto match = std::find_if(std::begin(score3d[cpId]), std::end(score3d[cpId]), is_assoc);
-        while (match != score3d[cpId].end()) {
-          tracksters_duplicate[std::distance(std::begin(score3d[cpId]), match)] = 1;
-          match = std::find_if(std::next(match), std::end(score3d[cpId]), is_assoc);
+      //std::cout << "assocDup >= 2" << std::endl ;
+        auto match = std::find_if(std::begin(tstScore_vec), std::end(tstScore_vec), is_assoc);
+        while (match != tstScore_vec.end()) {
+          tracksters_duplicate[std::distance(std::begin(tstScore_vec), match)] = 1;
+          match = std::find_if(std::next(match), std::end(tstScore_vec), is_assoc);
         }
       }
     }
