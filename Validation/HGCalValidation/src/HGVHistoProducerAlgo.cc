@@ -2468,6 +2468,17 @@ return v.first == hitid; });
     return hits_and_fractions_norm;
   };
 
+  std::unordered_map<unsigned int, std::unordered_map<unsigned int, float>> lcFraction;
+  for (const auto& [key, hitid] : detIdSimTSId_Map) {
+    const auto hitEn = hitMap.at(key)->energy();
+    for (unsigned int iSC=0; iSC < hitid.size(); iSC++)
+      for (const auto& [lcId, simTS_idFrac] : hitid[iSC]) {
+        const auto hitEnFr_inLC = hitEn / layerClusters[lcId].energy();
+        for (const auto& pair : simTS_idFrac)
+          lcFraction[iSC][lcId] += pair.fraction * hitEnFr_inLC;
+      }
+  }
+
   // Loop through Tracksters
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
     if (tracksters[tstId].vertices().empty())
@@ -2559,7 +2570,6 @@ return v.first == hitid; });
         for (unsigned int iSC=0; iSC < hit_find_in_STS->second.size(); iSC++) {
         for (const auto& [lcId, simTS_idFrac] : hit_find_in_STS->second[iSC])
         for (const auto& h : simTS_idFrac) {
-          const auto shared_fraction = std::min(rhFraction, h.fraction);
           //We are in the case where there are calo particles with simhits connected via detid with the rechit under study
           //So, from all layers clusters, find the rechits that are connected with a calo particle and save/calculate the
           //energy of that calo particle as the sum over all rechits of the rechits energy weighted
@@ -2567,6 +2577,14 @@ return v.first == hitid; });
           const auto cpId = getCPId(simTS[h.clusterId], h.clusterId, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
           if (std::find(cPIndices.begin(), cPIndices.end(), cpId) == cPIndices.end())
             continue;
+
+          const auto shared_fraction = (i==0) ? std::min(rhFraction, h.fraction) : h.fraction;
+          /*
+        const auto lcId = getLCId(simTS[h.clusterId].vertices(), layerClusters, rh_detid);
+        if (int(lcId) < 0) continue;
+          std::cout << "min between rhFraction " << rhFraction << " and lcFraction[iSC][lcId] " << lcFraction[iSC][lcId] << std::endl;
+          const auto shared_fraction = std::min(rhFraction, lcFraction[iSC][lcId]);
+          */
 
           CPEnergyInTS[cpId] += shared_fraction * hit->energy();
           //Here sCOnLayer[CaloParticle][SimCluster][layer] describe above is set.
@@ -2655,13 +2673,6 @@ return v.first == hitid; });
                                << std::setw(25) << energyFractionOfCPinTS << std::endl;
 
   }  //end of loop through Tracksters
-
-  std::unordered_map<unsigned int, std::unordered_map<unsigned int, float>> lcFraction;
-    for (const auto& [key, hitid] : detIdSimTSId_Map)
-      for (unsigned int iSC=0; iSC < hitid.size(); iSC++)
-        for (const auto& [lcId, simTS_idFrac] : hitid[iSC])
-          for (const auto& pair : simTS_idFrac)
-            lcFraction[iSC][lcId] += pair.fraction * hitMap.at(key)->energy() / layerClusters[lcId].energy();
 
   // Loop through Tracksters
   for (unsigned int tstId = 0; tstId < nTracksters; ++tstId) {
