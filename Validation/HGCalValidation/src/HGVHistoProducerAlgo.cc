@@ -2712,17 +2712,20 @@ return v.first == hitid; });
     for (const auto& haf : tst_hitsAndFractions) {
       const auto rh_detid = haf.first;
       const auto rhFraction = haf.second;
-      bool hitWithNoSTS = false;
+      //bool hitWithNoSTS = false;
 
       if (detIdSimTSId_Map.find(rh_detid) == detIdSimTSId_Map.end())
-        hitWithNoSTS = true;
+{
+        //hitWithNoSTS = true;
+//std::cout << "hitWithNoSTS!" << std::endl ;
+continue;
+}
       auto itcheck = hitMap.find(rh_detid);
       const HGCRecHit* hit = itcheck->second;
       float hitEnergyWeight = hit->energy() * hit->energy();
 
       for (auto& stsPair : stsInTrackster[tstId]) {
         float cpFraction = 0.f;
-        if (!hitWithNoSTS) {
           const auto& cpId = getCPId(simTS[stsPair.first], stsPair.first, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
           for (unsigned int iSC=0; iSC < detIdSimTSId_Map[rh_detid].size(); iSC++) {
             if (simTS[stsPair.first].seedID() != cPHandle_id) { // SimTrackster from SimCluster
@@ -2735,6 +2738,7 @@ return v.first == hitid; });
               const auto findSTSIt = std::find(simTS_idFrac.begin(), simTS_idFrac.end(),
                                        HGVHistoProducerAlgo::detIdInfoInCluster{stsPair.first, 0.f}); // only the first element is used for the matching (overloaded operator==)
               if (findSTSIt != simTS_idFrac.end())
+              { //std::cout << "lcFraction[iSC][lcId]: " << lcFraction[iSC][lcId] << std::endl ;
                 cpFraction = lcFraction[iSC][lcId];
               } //else std::cout << "NOT FOUND" << std::endl ;
 
