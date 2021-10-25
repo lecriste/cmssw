@@ -141,6 +141,8 @@ struct HGVHistoProducerAlgoHistograms {
   // For Tracksters
   // Linking and Pattern Recognition
   std::vector<dqm::reco::MonitorElement*> h_score_trackster2caloparticle[2];
+  std::vector<dqm::reco::MonitorElement*> h_mergeScore_trackster2caloparticle[2];
+  std::vector<dqm::reco::MonitorElement*> h_allScore_trackster2caloparticle[2];
   std::vector<dqm::reco::MonitorElement*> h_score_caloparticle2trackster[2];
   std::vector<dqm::reco::MonitorElement*> h_energy_vs_score_trackster2caloparticle[2];
   std::vector<dqm::reco::MonitorElement*> h_energy_vs_score_caloparticle2trackster[2];

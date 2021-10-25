@@ -1102,6 +1102,10 @@ void HGVHistoProducerAlgo::bookTracksterSTSHistos(DQMStore::IBooker& ibook, Hist
 
   histograms.h_score_trackster2caloparticle[i].push_back(
       ibook.book1D("Score_trackster2" + ref[i], "Score of Trackster per " + refT[i], nintScore_, minScore_, maxScore_));
+  histograms.h_mergeScore_trackster2caloparticle[i].push_back(
+      ibook.book1D("ScoreMerge_trackster2" + ref[i], "Score of merged Trackster per " + refT[i], nintScore_, minScore_, maxScore_));
+  histograms.h_allScore_trackster2caloparticle[i].push_back(
+      ibook.book1D("ScoreAll_trackster2" + ref[i], "Score of all Trackster per " + refT[i], nintScore_, minScore_, maxScore_));
   histograms.h_score_caloparticle2trackster[i].push_back(ibook.book1D(
       "Score_" + ref[i] + "2trackster", "Score of " + refT[i] + " per Trackster", nintScore_, minScore_, maxScore_));
   histograms.h_energy_vs_score_trackster2caloparticle[i].push_back(
@@ -2664,7 +2668,7 @@ return v.first == hitid; });
     if (tracksters[tstId].vertices().empty())
       continue;
 
-    // find the unique CaloParticles id contributing to the Tracksters
+    // find the unique SimTrackster ids contributing to the Trackster
     //stsInTrackster[trackster][STSids]
     std::sort(stsInTrackster[tstId].begin(), stsInTrackster[tstId].end());
     const auto last = std::unique(stsInTrackster[tstId].begin(), stsInTrackster[tstId].end());
@@ -2692,6 +2696,8 @@ return v.first == hitid; });
     }
     invTracksterEnergyWeight = 1.f / invTracksterEnergyWeight;
 
+    //std::cout << "\nsize of haf: " << tst_hitsAndFractions.size() << std::endl ;
+    std::unordered_map<unsigned int, int> sharedHits;
     for (const auto& haf : tst_hitsAndFractions) {
       const auto rh_detid = haf.first;
       const auto rhFraction = haf.second;
@@ -2719,16 +2725,29 @@ return v.first == hitid; });
                                        HGVHistoProducerAlgo::detIdInfoInCluster{stsPair.first, 0.f}); // only the first element is used for the matching (overloaded operator==)
               if (findSTSIt != simTS_idFrac.end())
                 cpFraction = lcFraction[iSC][lcId];
+              } //else std::cout << "NOT FOUND" << std::endl ;
+
+              if (stsPair.second == FLT_MAX) {
+                stsPair.second = 0.f;
+              }
+              //std::cout << "Adding with rhFraction " << rhFraction << " and cpFraction " << cpFraction << std::endl;
+              stsPair.second +=
+                (rhFraction - cpFraction) * (rhFraction - cpFraction) * hitEnergyWeight * invTracksterEnergyWeight;
+              sharedHits[stsPair.first] += 1;
             }
             if (i==0) break; // for Linking we ignore the SimCluster granularity
-          }
-        }
+          //}
+        //}
+        /*
         if (stsPair.second == FLT_MAX) {
           stsPair.second = 0.f;
         }
+        //std::cout << "Adding with rhFraction " << rhFraction << " and cpFraction " << cpFraction << std::endl;
         stsPair.second +=
             (rhFraction - cpFraction) * (rhFraction - cpFraction) * hitEnergyWeight * invTracksterEnergyWeight;
-      }
+        */
+        }
+      } // end loop through stsInTrackster
     }  //end of loop through trackster rechits
 
     //In case of a Trackster with some energy but none related CaloParticles print some info.
@@ -2738,19 +2757,28 @@ return v.first == hitid; });
                                  << "\n";
 
     tracksters_fakemerge[tstId] = std::count_if(std::begin(stsInTrackster[tstId]),
-                                        std::end(stsInTrackster[tstId]),
-                                        [](const auto& obj) { return obj.second < ScoreCutTStoCPFakeMerge_; });
+                                                std::end(stsInTrackster[tstId]),
+                                                [=](const auto& obj) { return obj.second < ScoreCutTStoCPFakeMerge ; });
+                                                //[=](const auto& obj) { return (sharedHits.at(obj.first) >= ScoreMinHitsTStoCPFakeMerge_) ? obj.second < ScoreCutTStoCPFakeMerge : false; });
 
     const auto score = std::min_element(std::begin(stsInTrackster[tstId]),
                                         std::end(stsInTrackster[tstId]),
                                         [](const auto& obj1, const auto& obj2) { return obj1.second < obj2.second; });
+    const auto score2 = std::min_element(std::begin(stsInTrackster[tstId]),
+                                         std::end(stsInTrackster[tstId]),
+                                         [score](const auto& obj1, const auto& obj2) { if (obj1.first != score->first) return obj1.second < obj2.second;
+else return false;
+});
     for (const auto& stsPair : stsInTrackster[tstId]) {
       const auto& cpId = getCPId(simTS[stsPair.first], stsPair.first, cPHandle_id, cpToSc_SimTrackstersMap, simTS_fromCP);
       if (std::find(cPIndices.begin(), cPIndices.end(), cpId) == cPIndices.end())
         continue;
 
-      LogDebug("HGCalValidator") << "Trackster Id: \t" << tstId << "\t SimTrackster id: \t" << stsPair.first << "\t score \t"
-                                 << stsPair.second << std::endl;
+      LogDebug("HGCalValidator") << "Trackster Id:\t" << tstId << "\tSimTrackster id:\t" << stsPair.first << "\tscore\t"
+                                 << stsPair.second << "\tfrom " << sharedHits[stsPair.first] << " shared hits" << std::endl;
+
+      histograms.h_allScore_trackster2caloparticle[i][count]->Fill(stsPair.second);
+
       float sharedeneCPallLayers = 0.;
       for (auto& iSC : sCOnLayer[cpId]) {
         for (unsigned int j = 0; j < layers * 2; ++j) {
@@ -2765,6 +2793,9 @@ return v.first == hitid; });
                                                                          tracksters[tstId].raw_energy());
         histograms.h_energy_vs_score_trackster2caloparticle[i][count]->Fill(
             score->second, sharedeneCPallLayers / tracksters[tstId].raw_energy());
+      }
+      else if (stsPair.first == score2->first) {
+        histograms.h_mergeScore_trackster2caloparticle[i][count]->Fill(stsPair.second);
       }
     }
   }  //end of loop through Tracksters
