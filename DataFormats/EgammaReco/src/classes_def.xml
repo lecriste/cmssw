@@ -1,5 +1,12 @@
 <lcgdict>
 
+  <class name="reco::SuperClusterSoA"/>
+  <class name="reco::SuperClusterSoA::View"/>
+  <class name="reco::SuperclusterHostCollection" ClassVersion="3">
+    <version ClassVersion="3" checksum="465030612"/>
+  </class>
+  <class name="edm::Wrapper<reco::SuperclusterHostCollection>" splitLevel="0"/>
+
   <class name="edm::RefToBase<reco::CaloCluster>"/>
   <class name="edm::reftobase::BaseHolder<reco::CaloCluster>"/>
   <class name="edm::reftobase::IndirectHolder<reco::CaloCluster>" />

@@ -1,3 +1,6 @@
+<library file="*.cc" name="RecoEgammaEgammaElectronProducersPlugins">
+<use name="alpaka"/>
+<use name="fmt"/>
 <use name="CommonTools/CandAlgos"/>
 <use name="CommonTools/ParticleFlow"/>
 <use name="DataFormats/BeamSpot"/>
@@ -14,6 +17,7 @@
 <use name="DataFormats/ParticleFlowReco"/>
 <use name="DataFormats/TrackReco"/>
 <use name="CommonTools/BaseParticlePropagator"/>
+<use name="Geometry/CommonTopologies"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ParameterSet"/>
@@ -30,6 +34,25 @@
 <use name="TrackingTools/Records"/>
 <use name="TrackingTools/TrajectoryParametrization"/>
 <use name="TrackingTools/TrajectoryState"/>
-<library file="*.cc" name="RecoEgammaEgammaElectronProducersPlugins">
+<use name="DataFormats/PortableTestObjects"/>
+<use name="DataFormats/TestObjects"/>
+<use name="HeterogeneousCore/AlpakaTest"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
+
+<library file="alpaka/*.cc" name="RecoEgammaEgammaElectronProducersPluginsPortable">
+<use name="alpaka"/>
+<use name="DataFormats/EgammaReco"/>
+<use name="DataFormats/PortableTestObjects"/>
+<use name="DataFormats/TestObjects"/>
+<use name="FWCore/Framework"/>
+<use name="FWCore/ParameterSet"/>
+<use name="FWCore/Utilities"/>
+<use name="MagneticField/Engine"/>
+<use name="MagneticField/Records"/>
+<use name="HeterogeneousCore/AlpakaCore"/>
+<use name="HeterogeneousCore/AlpakaInterface"/>
+<use name="HeterogeneousCore/AlpakaTest"/>
+  <flags ALPAKA_BACKENDS="1"/>
   <flags EDM_PLUGIN="1"/>
 </library>
