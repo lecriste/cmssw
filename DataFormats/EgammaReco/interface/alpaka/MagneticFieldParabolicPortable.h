@@ -34,7 +34,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     template <typename V3>
     ALPAKA_FN_HOST_ACC ALPAKA_FN_INLINE float MagneticFieldAtPoint(V3 vec) {
-        Parameters p;
         return B0Z(vec) * Kr(vec);
     }
 

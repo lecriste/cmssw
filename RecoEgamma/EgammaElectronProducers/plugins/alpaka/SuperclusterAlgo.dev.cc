@@ -29,7 +29,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                   reco::SuperclusterDeviceCollection::View view,
                                   int32_t size) const 
 		{
-			const int32_t thread = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc)[0u];
 			// Make a strided loop over the kernel grid, covering up to "size" elements
 			printf("Printed from device : \n");
 
