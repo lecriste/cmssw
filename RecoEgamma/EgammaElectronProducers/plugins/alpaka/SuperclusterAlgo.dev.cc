@@ -37,7 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 			{
 				printf("For SC i=%d Energy is :%f , theta is :%f , and r is %lf and phi is %lf,  \n",i,view[i].scEnergy(),view[i].scSeedTheta(), view[i].scR(),view[i].scPhi() ) ;
 				float x = view[i].scR() * alpaka::math::sin(acc,view[i].scSeedTheta()) * alpaka::math::sin(acc,view[i].scPhi());
-				float y = view[i].scR() * alpaka::math::sin(acc,view[i].scSeedTheta()) * alpaka::math::sin(acc,view[i].scPhi());
+				float y = view[i].scR() * alpaka::math::sin(acc,view[i].scSeedTheta()) * alpaka::math::cos(acc,view[i].scPhi());
 				float z = view[i].scR() * alpaka::math::sin(acc,view[i].scSeedTheta());
 				printf("x: %lf,  y: %lf,  z %lf",x,z,y);
 				Vector3f position{x,y,z};
