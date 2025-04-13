@@ -33,6 +33,7 @@ namespace PlanePortable {
 
         // Fast access to distance from plane for a vector
         constexpr float distanceFromPlaneVector(const Vec3& gv) const {
+            printf("\ninside distanceFromPlaneVector, normalVector : (%f, %f, %f)", normalVector().x(), normalVector().y(), normalVector().z());
             return normalVector().dot(gv);
         }
     };

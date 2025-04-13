@@ -103,11 +103,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 		const double straightLineCutoff = 1.e-7;
 		if (fabs(rho) < straightLineCutoff  &&  fabs(rho) * startingPos.head(2).norm() < straightLineCutoff) {
 			// calculate path length
-			const auto pz = plane.distanceFromPlaneVector(startingDir);
-			s = plane.localZclamped(startingPos) / pz;
+			const auto theP0 = startingDir.normalized();
+			const auto pz = plane.distanceFromPlaneVector(theP0);
+			s = - plane.localZclamped(startingPos) / pz;
 			if (s != 0) {
 				theSolExists = true;
-				position = startingPos + s * startingDir.normalized();
+				position = startingPos + s * theP0;
 				direction = startingDir;
 			} else {
 				theSolExists = false;

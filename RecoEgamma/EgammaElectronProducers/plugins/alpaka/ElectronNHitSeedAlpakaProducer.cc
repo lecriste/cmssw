@@ -314,6 +314,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 						Vector3f recHitpos{recHit.globalPosition().x(),recHit.globalPosition().y(),recHit.globalPosition().z()};
 						Vector3f surfPosition{recHit.det()->surface().position().x(),recHit.det()->surface().position().y(),recHit.det()->surface().position().z()};
 						Vector3f surfRotation{recHit.det()->surface().rotation().z().x(),recHit.det()->surface().rotation().z().y(),recHit.det()->surface().rotation().z().z()};
+						printf("\nsurfPosition ALPAKA : (%f, %f, %f)", surfPosition.x(), surfPosition.y(), surfPosition.z());
+						printf("\nsurfRotation ALPAKA : (%f, %f, %f)", surfRotation.x(), surfRotation.y(), surfRotation.z());					
 						Vector3f x2{0,0,0};
 						Vector3f p2{0,0,0};
 						double rho = 0.;

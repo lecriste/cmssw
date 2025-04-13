@@ -12,6 +12,7 @@ std::pair<bool, double> StraightLinePlaneCrossing::pathLength(const Plane& plane
   //
   PositionType planePosition(plane.position());
   DirectionType planeNormal(plane.normalVector());
+  printf("\nplaneNormal : (%f, %f, %f)", plane.normalVector().x(), plane.normalVector().y(), plane.normalVector().z());
   auto pz = planeNormal.dot(theP0);
   auto dS = -planeNormal.dot(theX0 - planePosition) / pz;
   // check direction

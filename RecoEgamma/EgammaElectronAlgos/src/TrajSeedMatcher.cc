@@ -17,6 +17,9 @@
 
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 
+#include <Eigen/Dense>
+using Vector3f = Eigen::Matrix<double, 3, 1>;
+
 constexpr float TrajSeedMatcher::kElectronMass_;
 
 namespace {
@@ -284,6 +287,12 @@ const TrajectoryStateOnSurface& TrajSeedMatcher::getTrajStateFromPoint(const Tra
     return res->second;
   else {  //doesnt exist, need to make it
     //FIXME: check for efficiency
+    const auto rechit_surf = hit.det()->surface();
+    Vector3f surfPosition{rechit_surf.position().x(),rechit_surf.position().y(),rechit_surf.position().z()};
+    Vector3f surfRotation{rechit_surf.rotation().z().x(),rechit_surf.rotation().z().y(),rechit_surf.rotation().z().z()};
+    printf("\nsurfPosition : (%f, %f, %f)", surfPosition.x(), surfPosition.y(), surfPosition.z());
+    printf("\nsurfRotation : (%f, %f, %f)", surfRotation.x(), surfRotation.y(), surfRotation.z());
+  
     auto val = trajStateFromPointCache.emplace(key, propagator.propagate(initialState, hit.det()->surface()));
     return val.first->second;
   }

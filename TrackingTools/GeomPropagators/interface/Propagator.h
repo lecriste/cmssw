@@ -48,6 +48,7 @@ public:
 
   template <typename STA, typename SUR>
   TrajectoryStateOnSurface propagate(STA const& state, SUR const& surface) const {
+    printf("\n[Propagator.h] Inside TrajectoryStateOnSurface propagate(STA const& state, SUR const& surface)");
     return propagateWithPath(state, surface).first;
   }
 
