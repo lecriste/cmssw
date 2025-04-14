@@ -25,6 +25,8 @@ using namespace SurfaceSideDefinition;
 
 std::pair<TrajectoryStateOnSurface, double> AnalyticalPropagator::propagateWithPath(const FreeTrajectoryState& fts,
                                                                                     const Plane& plane) const {
+  printf("\n[AnalyticalPropagator] planeNormal : (%f, %f, %f)", plane.normalVector().x(), plane.normalVector().y(), plane.normalVector().z());
+
   // check curvature
   float rho = fts.transverseCurvature();
 
